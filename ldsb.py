@@ -26,7 +26,7 @@ warnings.filterwarnings('ignore')
 class Config:
     """Configuration for LD-SB experiments"""
     # Paths - CHANGE THESE TO YOUR PATHS
-    data_root = "./imagenette"  # Path to your Imagenette dataset
+    data_root = "./imagenette-160"  # Path to your Imagenette dataset
     output_dir = "./outputs"     # Where to save results
     
     # Model settings
@@ -505,6 +505,22 @@ def plot_results(history: Dict, config: Config):
     plt.savefig(Path(config.output_dir) / f'training_history_{config.regime}.png', dpi=300)
     plt.close()
 
+# ----------------------------------------------------------------------
+# Extra: Save effective-rank curve to the current directory
+# ----------------------------------------------------------------------
+def save_effective_rank_curve(history, filename="effective_rank_plot.png"):
+    plt.figure(figsize=(6, 4))
+    plt.plot(history["effective_rank"], label="Effective Rank")
+    plt.xlabel("Epoch")
+    plt.ylabel("Effective Rank")
+    plt.title("Effective Rank over Training")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(filename, dpi=300)
+    plt.close()
+    print(f"[Saved] {filename}")
+
 
 def main():
     """Main execution function"""
@@ -642,6 +658,8 @@ def main():
     print("\n" + "="*80)
     print("Experiment completed successfully!")
     print("="*80)
+    
+    save_effective_rank_curve(history)
 
 
 if __name__ == "__main__":
