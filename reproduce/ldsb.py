@@ -92,7 +92,7 @@ class OneHiddenLayerNet(nn.Module):
                             std=1 / np.sqrt(self.input_dim))
             nn.init.zeros_(self.fc1.bias)
             nn.init.normal_(self.fc2.weight,
-                            mean=0,deprecated
+                            mean=0,
                             std=1 / np.sqrt(self.hidden_dim))
 
     def forward(self, x):
