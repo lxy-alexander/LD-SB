@@ -1,4 +1,3 @@
-# data.py
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -11,11 +10,10 @@ import os
 import pandas as pd
 from PIL import Image
 
+
 class WaterbirdsDataset(Dataset):
-    """
-    Waterbirds dataset loader using metadata.csv.
-    Returns (image_tensor, label)
-    """
+    # Dataset loader for Waterbirds using metadata.csv.
+    # Returns (image_tensor, label).
 
     def __init__(self, root, split, transform=None):
         self.root = Path(root)
@@ -25,12 +23,13 @@ class WaterbirdsDataset(Dataset):
         metadata_path = self.root / "metadata.csv"
         df = pd.read_csv(metadata_path)
 
-        # Filter by split: 0=train, 1=val, 2=test
+        # Mapping: 0=train, 1=val, 2=test
         split_map = {"train": 0, "val": 1, "test": 2}
         df = df[df["split"] == split_map[split]]
 
+        # Store paths and labels
         self.img_paths = df["img_filename"].tolist()
-        self.labels = df["y"].tolist()   # bird category (0: landbird, 1: waterbird)
+        self.labels = df["y"].tolist()  # 0=landbird, 1=waterbird
 
     def __len__(self):
         return len(self.img_paths)
@@ -47,18 +46,9 @@ class WaterbirdsDataset(Dataset):
         return img, label
 
 
-
-
 class FeatureDataset(Dataset):
-    """
-    A simple dataset wrapper for precomputed ResNet features.
-
-    Args:
-        features (Tensor): Pre-extracted feature tensor of shape (N, D).
-        labels (Tensor): Corresponding class labels of shape (N,).
-
-    Returns batches of (feature_vector, label).
-    """
+    # Dataset wrapper for precomputed ResNet feature tensors.
+    # Returns (feature_vector, label).
 
     def __init__(self, features, labels):
         self.features = features
@@ -72,9 +62,7 @@ class FeatureDataset(Dataset):
 
 
 def extract_resnet_features(config, split="train"):
-    """
-    Extract features using pretrained ResNet-50 for Waterbirds dataset.
-    """
+    # Extract pretrained ResNet-50 features for the given split.
 
     transform = transforms.Compose([
         transforms.Resize(256),
@@ -84,7 +72,7 @@ def extract_resnet_features(config, split="train"):
                              std=[0.229, 0.224, 0.225])
     ])
 
-    # Use Waterbirds dataset instead of ImageFolder
+    # Load Waterbirds dataset (not ImageFolder)
     dataset = WaterbirdsDataset(config.data_root, split, transform)
 
     loader = DataLoader(dataset,
@@ -92,7 +80,7 @@ def extract_resnet_features(config, split="train"):
                         shuffle=False,
                         num_workers=4)
 
-    # Load pretrained ResNet-50
+    # Load pretrained ResNet-50 and remove the classifier
     resnet = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
     feature_extractor = torch.nn.Sequential(*list(resnet.children())[:-1])
     feature_extractor.to(config.device).eval()
@@ -105,8 +93,8 @@ def extract_resnet_features(config, split="train"):
         for images, labels in tqdm(loader):
             images = images.to(config.device)
 
-            feats = feature_extractor(images)
-            feats = feats.view(images.size(0), -1)
+            feats = feature_extractor(images)  # shape: (N, 2048, 1, 1)
+            feats = feats.view(images.size(0), -1)  # flatten to (N, 2048)
 
             all_features.append(feats.cpu())
             all_labels.append(labels)
@@ -115,18 +103,7 @@ def extract_resnet_features(config, split="train"):
 
 
 def load_cached_or_extract(config, split):
-    """
-    Load cached ResNet features if available.
-    Otherwise, compute and save them to disk.
-
-    Args:
-        config: Experiment configuration.
-        split : "train" or "val".
-
-    Returns:
-        features (Tensor): Shape (N, 2048)
-        labels   (Tensor): Shape (N,)
-    """
+    # Load saved features if available; otherwise extract and cache.
 
     cache_path = Path(config.output_dir) / f"{split}_features.pt"
 
@@ -135,31 +112,21 @@ def load_cached_or_extract(config, split):
         data = torch.load(cache_path)
         return data["features"], data["labels"]
 
-    # Compute features and save them
+    # Extract features and save to disk
     features, labels = extract_resnet_features(config, split)
-
     torch.save({"features": features, "labels": labels}, cache_path)
-    print(f"Saved cached features: {cache_path}")
 
+    print(f"Saved cached features: {cache_path}")
     return features, labels
 
 
 def create_feature_loaders(config):
-    """
-    Create dataloaders for the precomputed feature tensors.
+    # Create dataloaders for precomputed feature tensors.
+    # Returns: train_loader, val_loader, raw_val_features, raw_val_labels
 
-    Returns:
-        train_loader: DataLoader for training features.
-        val_loader  : DataLoader for validation features.
-        val_x       : Raw validation feature tensor (for LD-SB evaluation).
-        val_y       : Raw validation label tensor.
-    """
-
-    # Load or extract feature tensors
     train_x, train_y = load_cached_or_extract(config, "train")
     val_x, val_y = load_cached_or_extract(config, "val")
 
-    # Wrap into PyTorch dataloaders
     train_loader = DataLoader(FeatureDataset(train_x, train_y),
                               batch_size=config.batch_size,
                               shuffle=True)
@@ -169,4 +136,3 @@ def create_feature_loaders(config):
                             shuffle=False)
 
     return train_loader, val_loader, val_x, val_y
-
