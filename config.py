@@ -4,7 +4,7 @@ import torch
 
 class Config:
     """Configuration for LD-SB experiments"""
-    data_root = "./imagenette-160"
+    data_root = "./waterbird"
     output_dir = "./outputs"
 
     # Model settings

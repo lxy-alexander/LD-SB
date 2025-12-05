@@ -8,6 +8,46 @@ from torchvision.models import resnet50, ResNet50_Weights
 from tqdm import tqdm
 import os
 
+import pandas as pd
+from PIL import Image
+
+class WaterbirdsDataset(Dataset):
+    """
+    Waterbirds dataset loader using metadata.csv.
+    Returns (image_tensor, label)
+    """
+
+    def __init__(self, root, split, transform=None):
+        self.root = Path(root)
+        self.split = split
+        self.transform = transform
+
+        metadata_path = self.root / "metadata.csv"
+        df = pd.read_csv(metadata_path)
+
+        # Filter by split: 0=train, 1=val, 2=test
+        split_map = {"train": 0, "val": 1, "test": 2}
+        df = df[df["split"] == split_map[split]]
+
+        self.img_paths = df["img_filename"].tolist()
+        self.labels = df["y"].tolist()   # bird category (0: landbird, 1: waterbird)
+
+    def __len__(self):
+        return len(self.img_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.root / self.img_paths[idx]
+        label = self.labels[idx]
+
+        img = Image.open(img_path).convert("RGB")
+
+        if self.transform:
+            img = self.transform(img)
+
+        return img, label
+
+
+
 
 class FeatureDataset(Dataset):
     """
@@ -33,21 +73,7 @@ class FeatureDataset(Dataset):
 
 def extract_resnet_features(config, split="train"):
     """
-    Extract features using a pretrained ResNet-50 (ImageNet-1K weights).
-
-    Steps:
-        1. Load the dataset (train/val) from ImageFolder structure.
-        2. Apply standard ImageNet preprocessing.
-        3. Pass images through ResNet-50 up to the penultimate layer.
-        4. Save flattened 2048-dim feature vectors.
-
-    Args:
-        config: Experiment configuration object.
-        split  : "train" or "val".
-
-    Returns:
-        all_features (Tensor): Shape (N, 2048)
-        all_labels   (Tensor): Shape (N,)
+    Extract features using pretrained ResNet-50 for Waterbirds dataset.
     """
 
     transform = transforms.Compose([
@@ -58,33 +84,28 @@ def extract_resnet_features(config, split="train"):
                              std=[0.229, 0.224, 0.225])
     ])
 
-    # Load dataset using ImageFolder structure
-    dataset = torchvision.datasets.ImageFolder(root=str(
-        Path(config.data_root) / split),
-                                               transform=transform)
+    # Use Waterbirds dataset instead of ImageFolder
+    dataset = WaterbirdsDataset(config.data_root, split, transform)
 
     loader = DataLoader(dataset,
                         batch_size=config.batch_size,
                         shuffle=False,
                         num_workers=4)
 
-    # Load pretrained ResNet-50 and remove the final FC layer
+    # Load pretrained ResNet-50
     resnet = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
     feature_extractor = torch.nn.Sequential(*list(resnet.children())[:-1])
     feature_extractor.to(config.device).eval()
 
     all_features, all_labels = [], []
 
-    print(f"Extracting features from {split} ...")
+    print(f"Extracting features from Waterbirds split={split} ...")
 
     with torch.no_grad():
         for images, labels in tqdm(loader):
             images = images.to(config.device)
 
-            # (B, 2048, 1, 1)
             feats = feature_extractor(images)
-
-            # Flatten to (B, 2048)
             feats = feats.view(images.size(0), -1)
 
             all_features.append(feats.cpu())
@@ -148,3 +169,4 @@ def create_feature_loaders(config):
                             shuffle=False)
 
     return train_loader, val_loader, val_x, val_y
+

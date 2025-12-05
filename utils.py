@@ -1,7 +1,6 @@
 # utils.py
 import torch
 
-
 def compute_effective_rank(W):
     U, S, V = torch.svd(W)
     S2 = S**2
