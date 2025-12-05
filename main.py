@@ -6,6 +6,7 @@ from model import MultiLayerNet
 from data import create_feature_loaders
 from train import train_model
 from ldsb_eval import find_projection_matrix, evaluate_ldsb
+from utils import set_seed
 
 
 def train(config, num_layers):
@@ -40,6 +41,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = Config()
+    set_seed(config.seed)
 
     if args.lr is not None:
         config.learning_rate_rich = args.lr
