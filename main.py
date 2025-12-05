@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import torch
 from config import Config
@@ -9,7 +10,7 @@ from ldsb_eval import find_projection_matrix, evaluate_ldsb
 from utils import set_seed
 
 
-def train(config, num_layers):
+def train(config, num_layers, lr):
 
     train_loader, val_loader, val_x, val_y = create_feature_loaders(config)
 
@@ -31,6 +32,27 @@ def train(config, num_layers):
     print("Final Results")
     print("=" * 60)
     print(f"LD-SB metrics: {metrics}")
+
+    # Save results to JSON
+    results = {
+        "config": {
+            "num_layers": num_layers,
+            "regime": config.regime,
+            "learning_rate": lr,
+            "num_steps": config.num_steps,
+            "hidden_dim": config.hidden_dim,
+            "seed": config.seed,
+        },
+        "history": history,
+        "ldsb_metrics": metrics,
+        "final_val_acc": history["val_acc"][-1] if history["val_acc"] else None,
+        "final_effective_rank": final_rank,
+    }
+
+    output_path = os.path.join(config.output_dir, f"results_layer{num_layers}.json")
+    with open(output_path, "w") as f:
+        json.dump(results, f, indent=2)
+    print(f"\nResults saved to {output_path}")
 
 
 if __name__ == "__main__":
@@ -61,4 +83,4 @@ if __name__ == "__main__":
     print(f"  steps  = {config.num_steps}")
     print(f"=" * 60)
 
-    train(config, args.layers)
+    train(config, args.layers, lr)
