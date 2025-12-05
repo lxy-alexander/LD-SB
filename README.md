@@ -54,8 +54,21 @@ All experiments use:
 | 20     | 0.05          | 87.82%        | 51.76           | 0.7%      | 38.4%    | 51      |
 | 50     | 0.01          | 86.82%        | 95.86           | 1.2%      | 37.5%    | 95      |
 
-![](results/plot_effective_rank.png)
+![](results/plot_all_metrics.png)
 
+1. Effective Rank vs Depth
+Deeper networks maintain much higher effective rank, while shallow models exhibit strong rank collapse. This shows that network depth suppresses rank collapse in the first-layer weights.
+
+2. P⊥-pC vs Depth
+P⊥-pC stays very low (<1.3%) across all depths, indicating that predictions are largely insensitive to the orthogonal subspace and rely mainly on the learned low-dimensional subspace.
+
+3. P-pC vs Depth
+For depths ≥10, P-pC stabilizes around 38–40%, showing consistent reliance on subspace 
+𝑃
+P. Even as rank increases with depth, the predictive structure remains low-dimensional.
+
+4. Validation Accuracy vs Depth
+Accuracy peaks at 10 layers and slightly decreases for deeper networks, reflecting a balance between depth, stability, and generalization performance.
 
 ### Key Observations
 
