@@ -1,10 +1,3 @@
-"""
-Low-Dimensional Simplicity Bias (LD-SB) Experiments
-Based on NeurIPS 2023 paper: "Simplicity Bias in Neural Networks"
-This implementation demonstrates LD-SB on the Imagenette dataset.
-Compares Rich vs Lazy regime initialization.
-"""
-
 import torch
 import torch.nn as nn
 import torch.optim as optim

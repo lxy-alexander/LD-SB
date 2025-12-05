@@ -1,8 +1,3 @@
-"""
-Low-Dimensional Simplicity Bias (LD-SB) Experiments
-Based on NeurIPS 2023 paper: "Simplicity Bias in Neural Networks"
-"""
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -29,19 +24,19 @@ class Config:
 
     # Model settings
     feature_dim = 2048
-    hidden_dim = 100  # 论文用 100
+    hidden_dim = 100
     num_classes = 10
 
     # Training settings
     batch_size = 128
     num_steps = 20000
-    warmup_steps = 500  # 缩短 warmup
+    warmup_steps = 500  # shortened warmup
 
-    # Rich vs Lazy regime
+    # Regime
     regime = "rich"
 
-    # 学习率 - 降低以避免发散
-    learning_rate_rich = 1  # 从 0.5 降到 0.1
+    # Learning rates
+    learning_rate_rich = 1
     learning_rate_lazy = 0.01
 
     weight_decay = 0.0
@@ -52,7 +47,7 @@ class Config:
 
 
 class OneHiddenLayerNet(nn.Module):
-    """One hidden layer neural network for LD-SB experiments."""
+    """One-hidden-layer neural network used in LD-SB experiments."""
 
     def __init__(self,
                  input_dim: int,
@@ -72,16 +67,16 @@ class OneHiddenLayerNet(nn.Module):
         self._initialize_weights()
 
     def _initialize_weights(self):
-        """Initialize weights according to rich or lazy regime"""
+        """Initialize weights according to rich or lazy regime."""
         if self.regime == "rich":
             with torch.no_grad():
-                # 第一层：每行在单位球面上
+                # First layer weights: rows normalized to the unit sphere
                 W = torch.randn_like(self.fc1.weight)
                 W = W / (W.norm(dim=1, keepdim=True) + 1e-8)
                 self.fc1.weight.copy_(W)
                 self.fc1.bias.zero_()
 
-                # 第二层：±1/m
+                # Second layer: ±1/m
                 a = torch.randint(0, 2, self.fc2.weight.shape).float() * 2 - 1
                 a /= self.hidden_dim
                 self.fc2.weight.copy_(a)
@@ -170,7 +165,7 @@ class FeatureDataset(Dataset):
 
 def train_model(model: nn.Module, train_loader: DataLoader,
                 val_loader: DataLoader, config: Config) -> Dict:
-    """Train with SGD + momentum, warmup + cosine decay."""
+    """Training loop with SGD + momentum and warmup + cosine decay LR schedule."""
     criterion = nn.CrossEntropyLoss()
 
     lr = config.learning_rate_rich if config.regime == "rich" else config.learning_rate_lazy
@@ -179,7 +174,7 @@ def train_model(model: nn.Module, train_loader: DataLoader,
                           momentum=config.momentum,
                           weight_decay=config.weight_decay)
 
-    # Warmup + cosine decay
+    # Learning rate schedule: warmup → cosine decay
     def lr_lambda(step):
         if step < config.warmup_steps:
             return step / config.warmup_steps
@@ -230,7 +225,6 @@ def train_model(model: nn.Module, train_loader: DataLoader,
         loss = criterion(outputs, labels)
         loss.backward()
 
-        # Gradient clipping 防止发散
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         optimizer.step()
@@ -295,12 +289,11 @@ def train_model(model: nn.Module, train_loader: DataLoader,
 
 
 def find_projection_matrix(model: nn.Module, rank: int) -> torch.Tensor:
-    """Find projection matrix P using SVD of first layer weights."""
+    """Compute projection matrix P from top-k singular vectors of first-layer weights."""
     weight_matrix = model.get_first_layer_weights()
     U, S, V = torch.svd(weight_matrix)
     V_k = V[:, :rank]
-    P = V_k @ V_k.t()
-    return P
+    return V_k @ V_k.t()
 
 
 def evaluate_ld_sb(model: nn.Module, P: torch.Tensor,
@@ -327,22 +320,18 @@ def evaluate_ld_sb(model: nn.Module, P: torch.Tensor,
         logits_x2 = model(x2)
         logits_mixed = model(x_mixed)
 
-        # 使用 softmax 概率而不是原始 logits
         prob_x1 = torch.softmax(logits_x1, dim=1)
         prob_x2 = torch.softmax(logits_x2, dim=1)
         prob_mixed = torch.softmax(logits_mixed, dim=1)
 
-        # P_perp-LC: ||prob(x_mixed) - prob(x1)|| / ||prob(x1)||
         diff_x1 = prob_mixed - prob_x1
         p_perp_lc = (torch.norm(diff_x1, dim=1) /
                      (torch.norm(prob_x1, dim=1) + 1e-8)).mean().item() * 100
 
-        # P-LC
         diff_x2 = prob_mixed - prob_x2
         p_lc = (torch.norm(diff_x2, dim=1) /
                 (torch.norm(prob_x2, dim=1) + 1e-8)).mean().item() * 100
 
-        # Prediction change probabilities
         pred_x1 = logits_x1.argmax(dim=1)
         pred_x2 = logits_x2.argmax(dim=1)
         pred_mixed = logits_mixed.argmax(dim=1)
@@ -360,7 +349,7 @@ def evaluate_ld_sb(model: nn.Module, P: torch.Tensor,
 
 
 def plot_results(history: Dict, config: Config):
-    """Plot training curves."""
+    """Plot loss, accuracy, and effective rank."""
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 
     axes[0].plot(history['train_loss'], label='Train')
@@ -427,11 +416,11 @@ def main():
                               config.regime).to(config.device)
     history = train_model(model, train_loader, val_loader, config)
 
-    # 3. Plot
+    # 3. Plot results
     print("\n3. Plotting...")
     plot_results(history, config)
 
-    # 4. Find P and evaluate LD-SB
+    # 4. Compute projection matrix and evaluate LD-SB
     print("\n4. Evaluating LD-SB...")
     final_eff_rank = history['effective_rank'][-1]
     rank = max(1, int(np.ceil(final_eff_rank)))
