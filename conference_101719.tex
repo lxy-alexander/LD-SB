@@ -401,7 +401,7 @@ This directly supports our hypothesis that deeper MLPs rely on a higher-dimensio
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\linewidth]{plot_effective_rank.png}
+\includegraphics[width=0.85\linewidth]{results/plot_effective_rank.png}
 \caption{Effective rank vs.\ network depth. Depth suppresses rank collapse and yields higher-dimensional representations.}
 \label{fig:eff_rank_depth}
 \end{figure}
@@ -412,7 +412,7 @@ This indicates that, even as rank increases, predictions remain highly insensiti
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\linewidth]{plot_p_perp_pc.png}
+\includegraphics[width=0.85\linewidth]{results/plot_p_perp_pc.png}
 \caption{$P_{\perp}$-pC vs.\ depth. All values remain $< 1.3\%$, indicating strong LD-SB across depths.}
 \label{fig:pperp_pc_depth}
 \end{figure}
@@ -423,7 +423,7 @@ Thus, even though deeper models use a higher-dimensional $P$, their degree of re
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\linewidth]{plot_p_pc.png}
+\includegraphics[width=0.85\linewidth]{results/plot_p_pc.png}
 \caption{$P$-pC vs.\ depth. Values stabilize for depths $\geq 10$, indicating saturation of LD-SB strength.}
 \label{fig:p_pc_depth}
 \end{figure}
@@ -434,7 +434,7 @@ This suggests that deeper models are harder to optimize but do not fundamentally
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\linewidth]{plot_val_acc.png}
+\includegraphics[width=0.85\linewidth]{results/plot_val_acc.png}
 \caption{Validation accuracy vs.\ depth. Accuracy peaks at 10 layers and declines slightly afterward.}
 \label{fig:val_acc_depth}
 \end{figure}
