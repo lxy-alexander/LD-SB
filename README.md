@@ -14,7 +14,7 @@ We implement the LD-SB metric computation as described in the paper:
 - **P⊥-pC (Prediction Change in orthogonal subspace)**: Measures how often predictions change when replacing the P-component with features from a different sample. Lower values indicate stronger reliance on the low-dimensional subspace P
 - **P-pC (Prediction Change in P subspace)**: Measures how often predictions differ from a sample that only contributes the orthogonal component. Higher values indicate predictions primarily depend on features within P
 
-### 2. OrthoP Framework (`reproduce/orthop.py`)
+### 2. OrthoP Framework (`ldsb/orthop.py`)
 
 We implement the OrthoP experimental setup comparing Rich vs Lazy training regimes:
 
@@ -31,7 +31,7 @@ We extend the original one-hidden-layer setup to support arbitrary depth, enabli
 
 **Our hypothesis**: Increasing network depth will affect the strength of low-dimensional simplicity bias. Specifically, we investigate whether deeper networks exhibit different effective rank dynamics and LD-SB characteristics compared to shallow networks.
 
-We train MLPs with varying depths (1, 5, 10, 20, 50 layers) on the Waterbirds dataset using pre-extracted ResNet-50 features, all under the Rich training regime.
+We train MLPs with varying depths (1, 5, 10, 20, 50 layers) on the Waterbirds dataset using pre-extracted ResNet-50 features, comparing both Rich and Lazy training regimes.
 
 ---
 
@@ -42,47 +42,40 @@ All experiments use:
 - **Features**: 2048-dim ResNet-50 pretrained features
 - **Hidden dim**: 100
 - **Training**: 20,000 steps with warmup + cosine decay
-- **Regime**: Rich initialization
+- **Seed**: 42 (for reproducibility)
 
-### Summary Table
+### Rich vs Lazy Regime Comparison
 
-| Layers | Learning Rate | Final Val Acc | Final Eff. Rank | P⊥-pC (↓) | P-pC (↑) | rank(P) |
-|--------|---------------|---------------|-----------------|-----------|----------|---------|
-| 1      | 1.0           | 78.48%        | 4.15            | 0.0%      | 1.4%     | 4       |
-| 5      | 0.2           | 86.66%        | 6.81            | 0.1%      | 39.8%    | 6       |
-| 10     | 0.1           | 88.41%        | 26.13           | 0.6%      | 38.4%    | 26      |
-| 20     | 0.05          | 87.82%        | 51.76           | 0.7%      | 38.4%    | 51      |
-| 50     | 0.01          | 86.82%        | 95.86           | 1.2%      | 37.5%    | 95      |
+| Layers | Regime | Val Acc (%) | Eff. Rank | P⊥-pC (%) | P-pC (%) |
+|--------|--------|-------------|-----------|-----------|----------|
+| 1      | Rich   | 77.81       | 4.68      | 0.0       | 0.0      |
+| 1      | Lazy   | 87.24       | 84.03     | 0.4       | 39.0     |
+| 5      | Rich   | 87.07       | 6.90      | 0.2       | 38.0     |
+| 5      | Lazy   | 87.16       | 96.50     | 0.4       | 39.5     |
+| 10     | Rich   | 87.41       | 24.81     | 0.5       | 38.2     |
+| 10     | Lazy   | 86.99       | 96.28     | 0.5       | 39.0     |
+| 20     | Rich   | 88.57       | 49.57     | 0.3       | 38.0     |
+| 20     | Lazy   | 87.57       | 95.89     | 0.5       | 38.6     |
+| 50     | Rich   | 88.49       | 95.74     | 0.5       | 38.4     |
+| 50     | Lazy   | 85.57       | 96.39     | 0.8       | 40.0     |
 
-![](results/plot_all_metrics.png)
+### Visualization
 
-1. Effective Rank vs Depth
-Deeper networks maintain much higher effective rank, while shallow models exhibit strong rank collapse. This shows that network depth suppresses rank collapse in the first-layer weights.
+![Rich vs Lazy Comparison](results/plot_rich_vs_lazy.png)
 
-2. P⊥-pC vs Depth
-P⊥-pC stays very low (<1.3%) across all depths, indicating that predictions are largely insensitive to the orthogonal subspace and rely mainly on the learned low-dimensional subspace.
+### Key Findings
 
-3. P-pC vs Depth
-For depths ≥10, P-pC stabilizes around 38–40%, showing consistent reliance on subspace 
-𝑃
-P. Even as rank increases with depth, the predictive structure remains low-dimensional.
+1. **Rank Collapse is Regime-Dependent**  
+   In the rich regime, effective rank varies dramatically with depth (4.68 → 95.74), while in the lazy regime it remains nearly constant (~96) regardless of depth.
 
-4. Validation Accuracy vs Depth
-Accuracy peaks at 10 layers and slightly decreases for deeper networks, reflecting a balance between depth, stability, and generalization performance.
+2. **Depth Modulates Rank Collapse Only in Rich Regime**  
+   The monotonic increase in effective rank with depth occurs specifically because feature learning in the rich regime causes weight updates. In the lazy regime, weights barely move from initialization, so depth has no effect on rank.
 
-### Key Observations
+3. **LD-SB Metrics Converge Across Regimes at Sufficient Depth**  
+   For 50-layer networks, both regimes achieve similar effective ranks (~96) and similar LD-SB metrics (P-pC ~38-40%), suggesting that deep rich-regime networks eventually approximate lazy-regime behavior.
 
-1. **Rank Collapse vs Depth**: Shallow networks (1-5 layers) exhibit dramatic rank collapse (from ~97 to 4-8), while deeper networks maintain higher effective rank. The 50-layer network barely reduces rank at all (97.6 → 95.86).
-
-2. **Training Stability**: Shallow networks with high learning rates collapse quickly and get stuck at suboptimal solutions (~78% accuracy). Deeper networks with appropriately reduced learning rates achieve better final accuracy (~87-88%).
-
-3. **LD-SB Metrics**:
-   - **1-layer**: Extreme low-dimensional bias with P⊥-pC=0% and very low P-pC=1.4%, but the model appears to have collapsed to a degenerate solution
-   - **5-layer**: P⊥-pC ≈ 0.1%, P-pC ≈ 39.8%, effective rank ≈ 6.81. The network still exhibits strong low-dimensional dependence, and the first-layer weights remain low-rank. 
-   - **10-20 layers**: Healthy LD-SB signature with P⊥-pC < 1% and P-pC ≈ 38%, suggesting the model relies on a ~26-51 dimensional subspace
-   - **50-layer**: Near full-rank representation (rank 95) but still shows LD-SB characteristics (P⊥-pC=1.2%, P-pC=37.5%)
-
-4. **Depth-Rank Relationship**: There's a clear monotonic relationship between depth and final effective rank. Deeper networks resist rank collapse, possibly because gradients must propagate through more layers, limiting the magnitude of weight updates in early layers.
+4. **1-Layer Rich Regime Shows Extreme LD-SB**  
+   The 1-layer rich model exhibits P-pC = 0.0%, indicating it relies exclusively on the low-dimensional subspace. This is the most extreme form of simplicity bias observed.
 
 ---
 
@@ -93,22 +86,37 @@ Accuracy peaks at 10 layers and slightly decreases for deeper networks, reflecti
 ├── data.py            # Waterbirds dataset loading and feature extraction
 ├── model.py           # Multi-layer MLP with Rich/Lazy initialization
 ├── train.py           # Training loop with warmup + cosine schedule
+├── trainer.py         # Training utilities
 ├── ldsb_eval.py       # LD-SB metric computation
-├── main.py            # Main entry point
-├── lasb/
-│   ├── ldsb.py        # LD-SB reproduction script
-│   └── orthop.py      # OrthoP comparison
+├── main.py            # Main entry point for experiments
+├── utils.py           # Utility functions (set_seed, compute_effective_rank)
+├── plot_results.py    # Generate Rich vs Lazy comparison plots
+├── download_dataset.py # Download Waterbirds dataset
+├── requirements.txt   # Python dependencies
+├── ldsb/
+│   ├── ldsb.py        # LD-SB reproduction script (Imagenette)
+│   └── orthop.py      # OrthoP comparison (Imagenette)
+├── outputs/
+│   ├── results_rich_layer*.json   # Rich regime experiment results
+│   └── results_lazy_layer*.json   # Lazy regime experiment results
 └── results/
-    ├── sb_layer1.txt  # 1-layer experiment logs
-    ├── sb_layer5.txt  # 5-layer experiment logs
-    ├── sb_layer10.txt # 10-layer experiment logs
-    ├── sb_layer20.txt # 20-layer experiment logs
-    └── sb_layer50.txt # 50-layer experiment logs
+    ├── plot_rich_vs_lazy.png      # Main comparison figure
+    ├── plot_rank_comparison_bar.png
+    ├── plot_rank_over_time.png
+    └── plot_all_metrics.png
 ```
 
 ---
 
-## Usage
+## Installation
+
+### Create Conda Environment
+
+```bash
+conda create -n ldsb python=3.10 -y
+conda activate ldsb
+pip install -r requirements.txt
+```
 
 ### Download Dataset
 
@@ -116,25 +124,76 @@ Accuracy peaks at 10 layers and slightly decreases for deeper networks, reflecti
 python download_dataset.py
 ```
 
-### Run Experiments
+If SSL errors occur, manually download from the Waterbirds source and extract to `data/waterbirds_v1.0/`.
+
+---
+
+## Usage
+
+### Run Single Experiment
 
 ```bash
-# Single layer (original paper setup)
+# Rich regime (default)
 python main.py --layers 1 --lr 1.0
 
-# Deeper networks
-python main.py --layers 10 --lr 0.1
-python main.py --layers 20 --lr 0.05
-python main.py --layers 50 --lr 0.01
+# Lazy regime
+python main.py --regime lazy --layers 5
+
+# Custom learning rate
+python main.py --regime rich --layers 10 --lr 0.1
 ```
+
+### Run All Experiments
+
+```bash
+# Rich regime (all depths)
+python main.py --regime rich --layers 1
+python main.py --regime rich --layers 5
+python main.py --regime rich --layers 10
+python main.py --regime rich --layers 20
+python main.py --regime rich --layers 50
+
+# Lazy regime (all depths)
+python main.py --regime lazy --layers 1
+python main.py --regime lazy --layers 5
+python main.py --regime lazy --layers 10
+python main.py --regime lazy --layers 20
+python main.py --regime lazy --layers 50
+```
+
+### Generate Plots
+
+```bash
+python plot_results.py
+```
+
+This generates:
+- `results/plot_rich_vs_lazy.png` - 2x2 comparison grid
+- `results/plot_rank_comparison_bar.png` - Bar chart of effective ranks
+- `results/plot_rank_over_time.png` - Training dynamics
+
+---
+
+## CLI Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--layers` | int | 1 | Number of hidden layers |
+| `--regime` | str | "rich" | Training regime: "rich" or "lazy" |
+| `--lr` | float | None | Learning rate (uses config default if not set) |
+| `--steps` | int | None | Number of training steps |
 
 ---
 
 ## Discussion
 
-Our experiments reveal an interesting trade-off: while the original LD-SB paper focuses on one-hidden-layer networks that exhibit strong rank collapse, this collapse can lead to degenerate solutions when training dynamics are unstable. Deeper networks maintain higher-dimensional representations but still exhibit the core LD-SB phenomenon—predictions are primarily determined by a subspace much smaller than the full input dimension.
+Our experiments reveal that the depth effect on LD-SB is fundamentally tied to the training regime:
 
-The learning rate must be carefully tuned for each depth to avoid training collapse. This suggests that the "Rich regime" dynamics described in the paper may be depth-dependent, with deeper networks requiring smaller learning rates to achieve stable training while still exhibiting feature learning (as opposed to lazy/kernel regime).
+- **Rich regime**: Depth suppresses rank collapse. Shallow networks (1-5 layers) exhibit dramatic rank collapse (from ~97 to 4-8), while deeper networks maintain higher effective rank. The 50-layer network barely reduces rank at all (97.6 → 95.74).
+
+- **Lazy regime**: Depth has no effect on rank. The effective rank remains ~96 regardless of network depth, because weights stay close to their initialization.
+
+This demonstrates that the depth-dependent suppression of rank collapse occurs specifically through gradient-based feature learning, not through architectural capacity alone.
 
 ---
 

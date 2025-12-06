@@ -1,3 +1,16 @@
+"""
+Main entry point for LD-SB experiments on Waterbirds dataset.
+
+This script trains multi-layer MLPs with configurable depth and training regime
+(rich or lazy), then evaluates low-dimensional simplicity bias (LD-SB) metrics.
+
+Usage:
+    python main.py --layers 5 --regime rich --lr 0.2
+    python main.py --layers 10 --regime lazy
+
+Results are saved to outputs/results_{regime}_layer{layers}.json
+"""
+
 import argparse
 import json
 import os
@@ -11,6 +24,17 @@ from utils import set_seed
 
 
 def train(config, num_layers, lr):
+    """
+    Train a multi-layer MLP and evaluate LD-SB metrics.
+
+    Args:
+        config: Configuration object with hyperparameters
+        num_layers: Number of hidden layers in the MLP
+        lr: Learning rate for training
+
+    Returns:
+        None. Results are saved to JSON file in config.output_dir.
+    """
 
     train_loader, val_loader, val_x, val_y = create_feature_loaders(config)
 
