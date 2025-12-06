@@ -375,6 +375,36 @@ Imagenet     & 72.60 & $72.07 \pm 0.08$ \\
 \end{tabular}
 \end{table}
 
+\subsection{OrthoP Baseline on Waterbirds}
+\label{sec:orthop_waterbirds}
+
+Before examining how depth affects LD-SB, we first establish that the phenomenon exists on Waterbirds using the OrthoP methodology. We train 1-hidden layer networks in both rich and lazy regimes for 100 epochs and measure LD-SB metrics. Table~\ref{tab:orthop_waterbirds} shows the results.
+
+\begin{table}[htbp]
+\centering
+\caption{OrthoP results on Waterbirds (1 hidden layer, 100 epochs). Both regimes show strong LD-SB with low $P_{\perp}$-pC.}
+\label{tab:orthop_waterbirds}
+\begin{tabular}{ccccc}
+\toprule
+Regime & Val Acc (\%) & Eff. Rank & $P_{\perp}$-pC (\%) & $P$-pC (\%) \\
+\midrule
+Rich & 86.41 & 8.25 & 0.0 & 36.4 \\
+Lazy & 86.41 & 8.52 & 0.1 & 40.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Both regimes achieve similar final accuracy and effective rank, with strong LD-SB signatures ($P_{\perp}$-pC $\approx 0$). Figure~\ref{fig:orthop_rank} shows the rank evolution during training -- the rich regime collapses faster initially but both converge to similar low ranks.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/orthop_waterbirds_rank.png}
+\caption{Effective rank evolution during OrthoP training on Waterbirds. Both regimes exhibit rank collapse, converging to $\sim$8 effective dimensions.}
+\label{fig:orthop_rank}
+\end{figure}
+
+This establishes the baseline: 1-layer networks on Waterbirds exhibit strong LD-SB regardless of training regime. We now investigate how adding depth changes this behavior.
+
 \subsection{Hypothesis Results}
 \label{sec:hypothesis_results}
 
