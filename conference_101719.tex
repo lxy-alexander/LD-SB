@@ -474,7 +474,7 @@ This suggests that deeper models are harder to optimize but do not fundamentally
 
 \paragraph{Conclusion.}
 Depth significantly increases the dimensionality of the predictive subspace (higher $\mathrm{rank}(P)$), yet the classifier's reliance on that subspace---measured by $P_{\perp}$-pC and $P$-pC---remains strong and largely unchanged beyond moderate depth.  
-These findings confirm our hypothesis: **deeper networks learn higher-dimensional representations but retain the core simplicity bias structure described by LD-SB**.
+These findings confirm our hypothesis: deeper networks learn higher-dimensional representations but retain the core simplicity bias structure described by LD-SB.
 
 \subsection{Rich vs Lazy Regime Comparison}
 \label{sec:rich_lazy}
@@ -543,28 +543,28 @@ This comparison strengthens our hypothesis by revealing \emph{why} depth affects
 
 \subsection{Interpretation of Results}
 
-Our experiments provide strong empirical support for the hypothesis that \textbf{increasing MLP classifier depth significantly reduces simplicity bias}.
+Our experiments provide strong empirical support for the hypothesis that \textbf{increasing MLP depth alters simplicity bias characteristics}.
 
-\textbf{Why does depth reduce simplicity bias?}
+\textbf{Why does depth affect rank collapse?}
 
-The dramatic reduction in $P$-pC from 87.1\% to 17.6\% indicates a fundamental change in how the model makes decisions:
+The increase in effective rank from 4.68 (1-layer) to 95.74 (50-layer) shows a fundamental change in representation structure:
 
 \begin{itemize}
-    \item \textbf{Shallow networks (1 layer):} For 87\% of mixed samples, the prediction follows only the $P$-subspace contribution. The model essentially ignores $\sim$2034 of the 2048 feature dimensions.
+    \item \textbf{Shallow networks (1-5 layers):} Strong rank collapse to 4--7 dimensions. The first-layer weights concentrate on a small subspace.
     
-    \item \textbf{Deep networks (5+ layers):} For only 17.6\% of samples does the prediction ignore the $P^{\perp}$ contribution. The model integrates information from more dimensions.
+    \item \textbf{Deep networks (20-50 layers):} Rank stays high (50--96). Weight updates are distributed across layers, preventing extreme collapse in any single layer.
 \end{itemize}
 
-\textbf{Why does rank$(P)$ increase?}
+\textbf{Why does LD-SB persist despite higher rank?}
 
-The increase from 11 to 14 dimensions indicates that deep networks require more independent feature directions to maintain prediction stability. While numerically modest, this represents a 27\% increase in decision complexity. In the LD-SB framework, even small rank changes indicate fundamentally different decision structures.
+Even though 50-layer networks maintain rank $\sim$96, the $P$-pC metric stays around 38--40\%. This means predictions still depend primarily on the learned subspace $P$, just a higher-dimensional one. LD-SB is about dependence on a subspace, not necessarily a low-rank one.
 
 \textbf{Why does the effect saturate?}
 
-The identical metrics for 5-layer and 10-layer networks suggest that:
+The similar LD-SB metrics for 10-, 20-, and 50-layer networks suggest that:
 \begin{itemize}
-    \item The Imagenette classification task has intrinsic complexity requiring $\sim$14 feature dimensions
-    \item Beyond 5 layers, additional depth provides no further benefit for this task
+    \item The Waterbirds classification task has intrinsic complexity that bounds the needed subspace dimensionality
+    \item Beyond 10 layers, additional depth provides diminishing returns for this task
     \item This aligns with theories that task complexity, not arbitrary depth, should guide architecture design
 \end{itemize}
 

@@ -90,19 +90,22 @@ All experiments use:
 ├── ldsb_eval.py       # LD-SB metric computation
 ├── main.py            # Main entry point for experiments
 ├── utils.py           # Utility functions (set_seed, compute_effective_rank)
-├── plot_results.py    # Generate Rich vs Lazy comparison plots
-├── download_dataset.py # Download Waterbirds dataset
-├── requirements.txt   # Python dependencies
+├── plot_results.py       # Generate Rich vs Lazy comparison plots
+├── orthop_waterbirds.py  # OrthoP baseline experiment on Waterbirds
+├── download_dataset.py   # Download Waterbirds dataset
+├── requirements.txt      # Python dependencies
 ├── ldsb/
-│   ├── ldsb.py        # LD-SB reproduction script (Imagenette)
-│   └── orthop.py      # OrthoP comparison (Imagenette)
+│   ├── ldsb.py           # LD-SB reproduction script (Imagenette)
+│   └── orthop.py         # OrthoP comparison (Imagenette)
 ├── outputs/
-│   ├── results_rich_layer*.json   # Rich regime experiment results
-│   └── results_lazy_layer*.json   # Lazy regime experiment results
+│   ├── results_rich_layer*.json    # Rich regime experiment results
+│   ├── results_lazy_layer*.json    # Lazy regime experiment results
+│   └── orthop_waterbirds.json      # OrthoP baseline results
 └── results/
-    ├── plot_rich_vs_lazy.png      # Main comparison figure
+    ├── plot_rich_vs_lazy.png       # Main comparison figure
     ├── plot_rank_comparison_bar.png
     ├── plot_rank_over_time.png
+    ├── orthop_waterbirds_rank.png  # OrthoP rank evolution
     └── plot_all_metrics.png
 ```
 
@@ -160,6 +163,14 @@ python main.py --regime lazy --layers 10
 python main.py --regime lazy --layers 20
 python main.py --regime lazy --layers 50
 ```
+
+### Run OrthoP Baseline
+
+```bash
+python orthop_waterbirds.py
+```
+
+This trains 1-hidden layer networks in both Rich and Lazy regimes for 100 epochs, establishing the baseline LD-SB behavior before depth experiments.
 
 ### Generate Plots
 
