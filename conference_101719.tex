@@ -30,9 +30,9 @@ mbronik1@binghamton.edu}
 \maketitle
 
 \begin{abstract}
-Recent work has shown that neural networks exhibit simplicity bias (SB): they rely on the simplest predictive features even when more robust but complex features exist. Prior demonstrations of SB primarily use semi-synthetic datasets due to the lack of a rigorous feature definition.
+Neural networks exhibit simplicity bias (SB): they rely on the simplest predictive features even when more robust alternatives exist. Morwani et al.\ formalized this through Low-Dimensional Simplicity Bias (LD-SB), proving that one-hidden-layer networks collapse onto low-dimensional subspaces. However, their analysis focused on shallow networks, leaving the effect of depth unexplored.
 
-Morwani et al. formally define SB for one-hidden-layer neural networks and theoretically prove that, in the infinite-width and linearly separable setting, such networks depend almost exclusively on the 1-dimensional separable subspace, regardless of the presence of many richer features. Empirically, Morwani et al. show that models trained on real datasets such as ImageNet and Waterbirds–Landbirds rely on a low-dimensional projection of the inputs. Finally, Morwani et al. introduce an ensemble method that sequentially removes previously used features to encourage diversity, yielding models with improved robustness to Gaussian noise.
+We investigate how network depth affects LD-SB by training MLPs with 1--50 hidden layers on Waterbirds features and measuring effective rank and projection-mixing metrics. Our results show that depth dramatically increases the dimensionality of the predictive subspace (rank grows from 4.68 to 95.74) while LD-SB metrics remain stable. Comparing rich and lazy training regimes reveals that this depth effect operates through gradient-based feature learning: deeper networks in the rich regime suppress rank collapse, while lazy-regime networks maintain high rank regardless of depth. These findings demonstrate that depth reshapes but does not eliminate simplicity bias.
 
 \end{abstract}
 
@@ -186,7 +186,7 @@ How the effective rank of the first-layer projection matrix $P$ changes with dep
 How $P$-pC and $P^{\perp}$-pC behave across networks of different depths.
 
 
-The control criterion ensures that observed changes in LD-SB metrics arise from differences in depth rather than discrepancies in training quality or optimization stability.
+This ensures that observed changes in LD-SB metrics arise from differences in depth rather than discrepancies in training quality.
 
 
 
@@ -372,37 +372,7 @@ Imagenet     & 72.60 & $72.07 \pm 0.08$ \\
 \end{tabular}
 \end{table}
 
-\subsection{OrthoP Baseline on Waterbirds}
-\label{sec:orthop_waterbirds}
-
-Before examining how depth affects LD-SB, we first establish that the phenomenon exists on Waterbirds using the OrthoP methodology. We train 1-hidden layer networks in both rich and lazy regimes for 100 epochs and measure LD-SB metrics. Table~\ref{tab:orthop_waterbirds} shows the results.
-
-\begin{table}[htbp]
-\centering
-\caption{OrthoP results on Waterbirds (1 hidden layer, 100 epochs). Both regimes show strong LD-SB with low $P_{\perp}$-pC.}
-\label{tab:orthop_waterbirds}
-\begin{tabular}{ccccc}
-\toprule
-Regime & Val Acc (\%) & Eff. Rank & $P_{\perp}$-pC (\%) & $P$-pC (\%) \\
-\midrule
-Rich & 86.41 & 8.25 & 0.0 & 36.4 \\
-Lazy & 86.41 & 8.52 & 0.1 & 40.0 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Both regimes achieve similar final accuracy and effective rank, with strong LD-SB signatures ($P_{\perp}$-pC $\approx 0$). Figure~\ref{fig:orthop_rank} shows the rank evolution during training -- the rich regime collapses faster initially but both converge to similar low ranks.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\linewidth]{results/orthop_waterbirds_rank.png}
-\caption{Effective rank evolution during OrthoP training on Waterbirds. Both regimes exhibit rank collapse, converging to $\sim$8 effective dimensions.}
-\label{fig:orthop_rank}
-\end{figure}
-
-This establishes the baseline: 1-layer networks on Waterbirds exhibit strong LD-SB regardless of training regime. We now investigate how adding depth changes this behavior.
-
-\subsection{Hypothesis Results}
+\subsection{Depth Experiments}
 \label{sec:hypothesis_results}
 
 To evaluate whether network depth influences the manifestation of low-dimensional simplicity bias, we train MLPs with 1, 5, 10, 20, and 50 layers on Waterbirds features and compute LD-SB metrics for each model. Table~\ref{tab:depth_summary} summarizes the key results.
@@ -577,30 +547,11 @@ Although we did not directly measure adversarial or distributional robustness, o
     \item \textbf{More semantic decision-making:} Utilizing more features may correspond to learning more meaningful, generalizable patterns
 \end{enumerate}
 
-\subsection{Rich vs Lazy: Why Depth Matters}
+\subsection{Practical Implications}
 
-Comparing rich and lazy training helps explain \emph{why} depth affects simplicity bias. Figure~\ref{fig:rank_bar} shows the difference.
+Our findings suggest that \textbf{deeper networks could help mitigate extreme simplicity bias} when training in the rich regime. The convergence of 50-layer networks to lazy-regime behavior ($\sim$96 effective rank) indicates that sufficient depth naturally prevents the severe rank collapse seen in shallow networks.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\linewidth]{results/plot_rank_comparison_bar.png}
-\caption{Effective rank in rich vs lazy regimes. Rich regime shows depth-dependent rank increase; lazy regime stays high regardless of depth.}
-\label{fig:rank_bar}
-\end{figure}
-
-\textbf{The depth effect comes from training dynamics, not architecture.} If it was just about having more layers, both regimes would behave the same. But they don't:
-
-\begin{itemize}
-    \item \textbf{Rich regime:} Rank goes from 4.68 (1-layer) to 95.74 (50-layer). More layers = less rank collapse.
-    
-    \item \textbf{Lazy regime:} Rank stays around 96 no matter how deep. Weights don't change much from initialization so there's nothing to collapse.
-\end{itemize}
-
-This tells us the depth effect works through \textbf{gradient-based learning}. In rich training, gradients have to pass through more layers in deeper networks, which spreads out weight updates and prevents any single layer from collapsing too much. Lazy training doesn't have this issue since weights barely move anyway.
-
-\textbf{Convergence at 50 layers.} Interestingly, 50-layer networks end up with similar ranks in both regimes ($\sim$96). Deep enough rich networks start to look like lazy networks -- the updates get spread so thin across layers that the first layer doesn't collapse much.
-
-In practice this means using deeper networks could help avoid extreme simplicity bias when training in rich regime.
+However, this comes with trade-offs: deeper networks are harder to optimize (accuracy peaks at 10 layers) and require careful learning rate tuning. For practitioners, this suggests that moderate depth (10--20 layers) may offer the best balance between suppressing rank collapse and maintaining trainability.
 
 \subsection{Future Work}
 
