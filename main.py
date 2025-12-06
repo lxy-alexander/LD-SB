@@ -49,7 +49,7 @@ def train(config, num_layers, lr):
         "final_effective_rank": final_rank,
     }
 
-    output_path = os.path.join(config.output_dir, f"results_layer{num_layers}.json")
+    output_path = os.path.join(config.output_dir, f"results_{config.regime}_layer{num_layers}.json")
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to {output_path}")
@@ -60,10 +60,15 @@ if __name__ == "__main__":
     parser.add_argument("--layers", type=int, default=1)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--steps", type=int, default=None)
+    parser.add_argument("--regime", type=str, default=None, choices=["rich", "lazy"],
+                        help="Training regime: 'rich' or 'lazy'")
     args = parser.parse_args()
 
     config = Config()
     set_seed(config.seed)
+
+    if args.regime is not None:
+        config.regime = args.regime
 
     if args.lr is not None:
         config.learning_rate_rich = args.lr
