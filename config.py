@@ -3,7 +3,7 @@ import torch
 
 
 class Config:
-    data_root = "./waterbird"
+    data_root = "./data/waterbirds_v1.0"
     output_dir = "./outputs"
 
     feature_dim = 2048   # dimensionality of extracted ResNet-50 features
