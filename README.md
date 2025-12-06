@@ -4,6 +4,15 @@ This repository contains a partial reproduction of the Low-Dimensional Simplicit
 
 ---
 
+## Authors
+
+| Name | GitHub | Contributions |
+|------|--------|---------------|
+| Alexander Li | [@lxy-alexander](https://github.com/lxy-alexander) | Implemented LD-SB evaluation framework and OrthoP methodology, reproduced original paper results across multiple datasets, drafted paper outline |
+| Michael Bronikowski | [@mbron64](https://github.com/mbron64) | Designed and conducted depth experiments, implemented rich vs lazy regime comparison, developed analysis pipeline, led hypothesis investigation sections |
+
+---
+
 ## Implemented Components
 
 ### 1. LD-SB Evaluation (`ldsb_eval.py`)
@@ -205,6 +214,17 @@ Our experiments reveal that the depth effect on LD-SB is fundamentally tied to t
 - **Lazy regime**: Depth has no effect on rank. The effective rank remains ~96 regardless of network depth, because weights stay close to their initialization.
 
 This demonstrates that the depth-dependent suppression of rank collapse occurs specifically through gradient-based feature learning, not through architectural capacity alone.
+
+---
+
+## Key Changes from Original Code
+
+1. **Multi-layer MLP support**: Extended from 1-hidden layer to arbitrary depth (1-50 layers)
+2. **Rich vs Lazy regime CLI**: Added `--regime` argument to switch training initialization
+3. **Depth-dependent learning rates**: Tuned LR per depth to ensure stable training
+4. **JSON result logging**: Saves training history and metrics for reproducibility
+5. **Reproducibility seeding**: Added deterministic seeding across all random sources
+6. **Waterbirds focus**: Adapted experiments specifically for Waterbirds dataset with ResNet-50 features
 
 ---
 
