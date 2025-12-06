@@ -14,7 +14,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
 
-\title{Simplicity Bias in 1-Hidden Layer Neural Networks\\}
+\title{How Network Depth Affects Low-Dimensional Simplicity Bias\\}
 
 \author{\IEEEauthorblockN{Alexander Li\textsuperscript{*}}
 \IEEEauthorblockA{\textit{Binghamton University} \\
@@ -167,17 +167,13 @@ Building on the LD-SB framework and prior observations that shallow networks ten
 
 \subsection{Rationale}
 
-Several considerations motivate these hypotheses:
+Several considerations motivate this hypothesis:
 
 \begin{itemize}
     \item \textbf{Compositional nonlinearity:} Each added layer permits richer combinations of input features, enabling the first-layer representation to remain higher-rank.
     \item \textbf{Hierarchical abstraction:} Deeper models may draw on multiple feature dimensions instead of collapsing onto a single dominant direction.
     \item \textbf{Persistent low-dimensional dependence:} Even with higher representational rank, LD-SB theory suggests that prediction-relevant directions may remain low-dimensional, explaining why $P$-pC may saturate.
 \end{itemize}
-
-\subsection{Measurable Targets}
-
-To evaluate these hypotheses, we define the following quantitative criteria:
 
 \subsection{Evaluation Criteria}
 
