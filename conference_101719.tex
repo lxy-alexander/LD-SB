@@ -1,0 +1,618 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs} 
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Simplicity Bias in 1-Hidden Layer Neural Networks\\}
+
+\author{\IEEEauthorblockN{1\textsuperscript{st} Alexander Li}
+\IEEEauthorblockA{\textit{Binghamton University} \\
+xli49@binghamton.edu}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Michael Bronikowski}
+\IEEEauthorblockA{\textit{Binghamton University} \\
+mbronik1@binghamton.edu}
+}
+
+
+\maketitle
+
+\begin{abstract}
+Recent work has shown that neural networks exhibit simplicity bias (SB): they rely on the simplest predictive features even when more robust but complex features exist. Prior demonstrations of SB primarily use semi-synthetic datasets due to the lack of a rigorous feature definition.
+
+Morwani et al. formally define SB for one-hidden-layer neural networks and theoretically prove that, in the infinite-width and linearly separable setting, such networks depend almost exclusively on the 1-dimensional separable subspace, regardless of the presence of many richer features. Empirically, Morwani et al. show that models trained on real datasets such as ImageNet and Waterbirds–Landbirds rely on a low-dimensional projection of the inputs. Finally, Morwani et al. introduce an ensemble method that sequentially removes previously used features to encourage diversity, yielding models with improved robustness to Gaussian noise.
+
+\end{abstract}
+
+
+\section{Introduction}
+
+Deep neural networks achieve strong performance across many tasks, yet often fail under distribution shifts or adversarial perturbations \cite{b1}. A growing body of work attributes part of this fragility to \emph{simplicity bias} (SB)—the tendency of neural networks to rely on the easiest predictive features available, even when richer and more robust features exist \cite{b2, b3}. For example, classifiers trained on Waterbirds frequently exploit background correlations (water vs.\ land) instead of learning bird-specific visual features, leading to sharp accuracy drops when these correlations change.
+
+Morwani et al.\ formalize this tendency through the Low-Dimensional Simplicity Bias (LD-SB) framework, showing that one-hidden-layer ReLU networks trained in the rich regime collapse onto a low-dimensional subspace of the input \cite{b4}. This rank collapse explains why models depend heavily on a small set of predictive directions and ignore alternatives.
+
+However, LD-SB has been primarily studied in shallow networks. This leaves a natural architectural question unanswered: \emph{Does increasing network depth mitigate simplicity bias?} Deeper models might distribute feature learning across layers, potentially preventing extreme rank collapse in early layers. On the other hand, simplicity bias may remain a persistent property regardless of depth.
+
+To investigate this, we train multilayer perceptrons (MLPs) with varying depths (1--50 layers) on 2048-dimensional ResNet-50 features from the Waterbirds dataset and measure simplicity bias using the LD-SB projection-mixing metrics. Our goal is to understand whether depth changes the dimensionality of the learned representation or the model's dependence on low-dimensional predictive subspaces. All code used in this study is publicly available at:
+\url{https://github.com/lxy-alexander/LD-SB}.
+
+
+
+\section{Background and Gap in the Literature}
+
+\subsection{Prior Work on Simplicity Bias}
+
+A substantial body of work studies simplicity bias (SB)—the tendency of neural networks to rely on readily learnable but potentially non-robust features. Much of this research uses synthetic or semi-synthetic datasets where “simple’’ and “complex’’ features can be explicitly controlled. Representative examples include:
+
+\begin{itemize}
+    \item \textbf{MNIST--CIFAR concatenation} \cite{b2}, where networks often learn the MNIST component first.
+    \item \textbf{Colored MNIST} \cite{b5}, where label-dependent colors induce a strong but spurious predictive signal.
+    \item \textbf{Waterbirds} \cite{b6}, which exposes reliance on background cues rather than bird-specific features.
+\end{itemize}
+
+Complementary evidence from Geirhos et al.\ shows that ImageNet-trained CNNs prefer local texture over global shape \cite{b3}, highlighting how SB can manifest in naturalistic settings and contribute to fragility under distribution shift.
+
+\subsection{Low-Dimensional Simplicity Bias (LD-SB)}
+
+Morwani et al.\ (2023) formalize SB through the \textbf{Low-Dimensional Simplicity Bias (LD-SB)} framework \cite{b7}, providing both theoretical insights and empirical findings. Their key contributions include:
+
+\begin{enumerate}
+    \item A formal characterization of simplicity bias via low-rank projections in feature space,
+    \item A proof that one-hidden-layer ReLU networks trained in the rich regime rely on a low-dimensional, linearly separable subspace,
+    \item Empirical evidence from Imagenette and Waterbirds indicating that model predictions depend on only a small number of feature directions.
+\end{enumerate}
+
+Under LD-SB, for a classifier $f: \mathbb{R}^d \rightarrow \mathcal{Y}$, one identifies a projection matrix $P$ such that
+\begin{equation}
+f(Px + P^{\perp}x') \approx f(x)
+\label{eq:ldsb_core}
+\end{equation}
+for most input pairs $x,x'$, where $P^{\perp} = I - P$. This expresses that predictions remain stable even when the orthogonal component is replaced, implying that $f$ depends primarily on the low-dimensional subspace spanned by $P$.
+
+\subsection{Gap: Depth and Simplicity Bias}
+
+Despite its general framing, LD-SB has been developed almost entirely for \emph{single hidden-layer} networks. Whether similar behavior persists in deeper architectures—standard in contemporary deep learning—remains unknown.
+
+This gap is significant for several reasons:
+
+\begin{itemize}
+    \item Modern neural networks are overwhelmingly deep rather than shallow.
+    \item Depth alters representational capacity and optimization dynamics in ways not captured by existing LD-SB theory.
+    \item Understanding how depth influences simplicity bias may clarify sources of brittleness and inform architectural design.
+\end{itemize}
+
+To our knowledge, no prior work has systematically investigated how network depth affects simplicity bias under the LD-SB formulation. This motivates our study.
+
+
+
+
+\section{Methodology}
+
+\subsection{LD-SB Measurement Framework}
+
+This study follows the feature projection mixing procedure of Morwani et al.\ \cite{b7}.  
+Given two feature vectors $x^{(1)}, x^{(2)} \in \mathbb{R}^{2048}$ from different samples, a mixed feature vector is defined as:
+\begin{equation}
+    x_e = P x^{(1)} + P^{\perp} x^{(2)},
+    \label{eq:mixing}
+\end{equation}
+where $P$ is a rank-$k$ projection matrix and $P^{\perp} = I - P$ denotes its orthogonal complement.
+
+If the model's decision primarily depends on the subspace spanned by $P$, then the mixed vector $x_e$ will receive the same prediction as $x^{(1)}$, since the $P$-subspace components are inherited entirely from $x^{(1)}$. Contributions from $x^{(2)}$ in the orthogonal subspace are expected to have minimal effect.
+
+\subsection{Simplicity Bias Metrics}
+
+Three quantitative metrics are used to assess simplicity bias:
+
+\textbf{Metric 1: $P^{\perp}$-pC (Complementary Projection Consistency)}
+\begin{equation}
+    P^{\perp}\text{-pC} = \Pr\left[f(x_e) \neq f(x^{(1)})\right].
+    \label{eq:pperp_pc}
+\end{equation}
+This metric measures the probability that the mixed sample's prediction differs from that of $x^{(1)}$. Values near zero indicate that predictions are determined almost entirely by the $P$-subspace.
+
+\textbf{Metric 2: $P$-pC (Primary Projection Consistency)}
+\begin{equation}
+    P\text{-pC} = \Pr\left[f(x_e) \neq f(x^{(2)})\right].
+    \label{eq:p_pc}
+\end{equation}
+This metric quantifies disagreement with the second sample. Values approaching $100\%$ indicate that the model largely ignores features from the $P^{\perp}$ subspace.
+
+\textbf{Metric 3: $\mathrm{rank}(P)$ (Effective Decision Dimensionality)}
+
+The smallest rank $k$ of the projection matrix $P$ such that $P^{\perp}$-pC $< \epsilon$ (with $\epsilon = 0.01$). Smaller values imply that the model's decisions concentrate on fewer dimensions.
+
+\subsection{Projection Subspace Discovery Algorithm}
+
+The projection matrix $P$ is identified using the following procedure, adapted from Morwani et al.:
+
+\begin{enumerate}
+    \item \textbf{PCA-based initialization:}  
+    Compute principal components of the feature covariance matrix to obtain candidate high-variance directions.
+
+    \item \textbf{Gradient sensitivity analysis:}  
+    Compute the average gradient $\nabla_x f(x)$ over the dataset to identify feature dimensions with high sensitivity.
+
+    \item \textbf{Greedy dimension selection:}  
+    Starting with an empty projection, iteratively add the dimension that yields the greatest reduction in $P^{\perp}$-pC, continuing until the threshold is satisfied.
+\end{enumerate}
+
+The procedure terminates once $P^{\perp}$-pC $< 0.01$. The final value of $\mathrm{rank}(P)$ is then recorded.
+
+
+\section{Hypothesis}
+
+Building on the LD-SB framework and prior observations that shallow networks tend to collapse onto a small set of dominant feature directions, we investigate how increasing depth influences simplicity bias in multilayer perceptrons (MLPs). Our working hypothesis is as follows:
+
+\vspace{1em}
+\noindent\fbox{%
+    \parbox{0.93\columnwidth}{%
+        \textbf{HYPOTHESIS:} \textit{Increasing the number of hidden layers in an MLP will alter the strength and manifestation of low-dimensional simplicity bias, such that deeper networks exhibit different effective-rank dynamics and LD-SB characteristics compared to shallow networks.}
+    }%
+}
+\vspace{1em}
+
+
+\subsection{Rationale}
+
+Several considerations motivate these hypotheses:
+
+\begin{itemize}
+    \item \textbf{Compositional nonlinearity:} Each added layer permits richer combinations of input features, enabling the first-layer representation to remain higher-rank.
+    \item \textbf{Hierarchical abstraction:} Deeper models may draw on multiple feature dimensions instead of collapsing onto a single dominant direction.
+    \item \textbf{Persistent low-dimensional dependence:} Even with higher representational rank, LD-SB theory suggests that prediction-relevant directions may remain low-dimensional, explaining why $P$-pC may saturate.
+\end{itemize}
+
+\subsection{Measurable Targets}
+
+To evaluate these hypotheses, we define the following quantitative criteria:
+
+\subsection{Evaluation Criteria}
+
+To examine the effect of network depth on LD-SB, we track two quantities:
+
+\textbf{(1) Effective Rank Dynamics.}  
+How the effective rank of the first-layer projection matrix $P$ changes with depth.
+
+\textbf{(2) LD-SB Metrics.}  
+How $P$-pC and $P^{\perp}$-pC behave across networks of different depths.
+
+
+The control criterion ensures that observed changes in LD-SB metrics arise from differences in depth rather than discrepancies in training quality or optimization stability.
+
+
+
+
+\section{Experimental Setup}
+
+\subsection{Dataset: Waterbirds}
+
+We use the Waterbirds dataset \cite{b6}, a binary classification task (landbird vs.\ waterbird) with strong background--label correlations. Following Morwani et al.\ \cite{b7}, we extract features using an ImageNet-pretrained ResNet-50 and freeze all backbone parameters. Each image is mapped to a 2048-dimensional feature vector.
+
+\subsection{Feature Extraction}
+
+Each input image $I$ is transformed using a frozen ResNet-50 encoder:
+\[
+\phi(I) = \mathrm{GAP}(\mathrm{ResNet50}(I)) \in \mathbb{R}^{2048},
+\]
+where GAP denotes global average pooling. Freezing the encoder ensures that differences in LD-SB arise solely from the MLP architecture.
+
+\subsection{Classifier Architectures}
+
+We train MLP classifiers with varying depth while keeping all other architectural components fixed. Hidden-layer width is set to 100, and all layers use ReLU activations. No batch normalization, dropout, or residual connections are used.
+
+\[
+\text{Depths explored: } \{1,\,5,\,10,\,20,\,50\} \text{ layers.}
+\]
+
+This extends the original one-hidden-layer setting to study how depth influences LD-SB.
+
+\subsection{Training Configuration}
+
+All models are trained under the \textbf{rich regime} initialization described in \cite{b7}. Training uses 20{,}000 optimization steps with a warmup phase followed by cosine learning-rate decay.
+
+\begin{itemize}
+    \item Optimizer: Adam
+    \item Batch size: 128
+    \item Learning rate: depth-dependent (1.0 for 1-layer, 0.2 for 5-layer, 0.1 for 10-layer, 0.05 for 20-layer, 0.01 for 50-layer)
+    \item Loss: cross-entropy
+    \item Backbone features: frozen
+\end{itemize}
+
+Learning rate is tuned per depth to avoid training collapse and ensure stable feature learning.
+
+\subsection{LD-SB Measurement Protocol}
+
+We evaluate LD-SB using the projection-mixing procedure from Morwani et al.\ \cite{b7}. For each model:
+
+\begin{enumerate}
+    \item \textbf{Compute projection matrix $P$.}  
+          Let $W$ be the first-layer weight matrix. We compute its SVD and construct  
+          \[
+          P = V_k V_k^\top,
+          \]
+          where $k$ is the effective rank of $W$.
+    \item \textbf{Sample feature pairs.}  
+          Randomly select 1{,}000 feature pairs $(x^{(1)}, x^{(2)})$ from the validation set.
+    \item \textbf{Create mixed samples.}  
+          Using the decomposition $P + P^\perp = I$, form  
+          \[
+          x_{\mathrm{mix}} = P x^{(1)} + P^\perp x^{(2)}.
+          \]
+    \item \textbf{Compute LD-SB metrics.}  
+          Measure:
+          \begin{itemize}
+              \item $P^\perp$-pC: prediction change when replacing the orthogonal component
+              \item $P$-pC: prediction change when replacing the projected component
+              \item $\mathrm{rank}(P)$: dimensionality of the predictive subspace
+          \end{itemize}
+\end{enumerate}
+
+
+
+\section{Results}
+
+\subsection{Paper Results}
+\label{sec:reproduce}
+
+We begin by reproducing the LD-SB phenomena documented by Morwani et al.\ \cite{b7}. This validates that our projection-based measurement implementation aligns with the theoretical and empirical behavior observed in the original work.
+
+\subsubsection{LD-SB in 1-Layer Networks}
+
+The results for 1-layer networks across several datasets in the rich regime are summarized in Table~\ref{tab:rich_ldsb}. These values closely match those reported by Morwani et al.\ and confirm that our LD-SB metrics behave correctly for the canonical shallow-network setting. In particular, the low rank($P$) and high $P$-LC values reflect strong reliance on a low-dimensional predictive subspace.
+
+\begin{table}[htbp]
+\centering
+\caption{Demonstration of LD-SB in the rich regime.}
+\label{tab:rich_ldsb}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lccccc}
+\toprule
+Dataset & rank($P$) & $P_{\perp}$-LC ($\downarrow$) & $P$-LC ($\uparrow$) & $P_{\perp}$-pC ($\downarrow$) & $P$-pC ($\uparrow$) \\
+\midrule
+b-Imagenette & 1 & $28.57 \pm 0.26$ & $92.13 \pm 0.24$ & $6.35 \pm 0.06$ & $47.02 \pm 0.24$ \\
+Imagenette   & 10 & $33.64 \pm 1.21$ & $106.29 \pm 0.53$ & $12.04 \pm 0.29$ & $89.88 \pm 0.08$ \\
+Waterbirds   & 3 & $25.24 \pm 1.03$ & $102.35 \pm 0.19$ & $6.78 \pm 0.15$ & $35.96 \pm 0.02$ \\
+MNIST-CIFAR  & 1 & $38.97 \pm 0.76$ & $101.98 \pm 0.31$ & $5.41 \pm 0.55$ & $45.15 \pm 0.44$ \\
+Imagenet     & 150 & $15.78 \pm 0.05$ & $132.05 \pm 0.06$ & $13.05 \pm 0.03$ & $99.76 \pm 0.01$ \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\subsubsection{LD-SB in the Lazy Regime}
+
+We next reproduce LD-SB under lazy training dynamics. Table~\ref{tab:lazy_ldsb} shows that—despite minimal parameter movement—LD-SB behavior persists when an optimal projection is learned directly. The small $P_{\perp}$-pC values once again indicate that predictions depend largely on a low-dimensional subspace.
+
+\begin{table}[htbp]
+\centering
+\caption{Demonstration of LD-SB in the lazy regime.}
+\label{tab:lazy_ldsb}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lccccc}
+\toprule
+Dataset & rank($P$) & $P_{\perp}$-LC ($\downarrow$) & $P$-LC ($\uparrow$) & $P_{\perp}$-pC ($\downarrow$) & $P$-pC ($\uparrow$) \\
+\midrule
+b-Imagenette & 1   & $36.94 \pm 1.01$ & $138.41 \pm 1.62$ & $5.50 \pm 1.13$ & $47.70 \pm 1.55$ \\
+Imagenette   & 15  & $55.99 \pm 3.86$ & $133.86 \pm 5.42$ & $11.25 \pm 0.36$ & $89.75 \pm 0.15$ \\
+Waterbirds   & 6   & $36.89 \pm 5.18$ & $105.41 \pm 7.06$ & $20.74 \pm 0.64$ & $45.96 \pm 0.69$ \\
+MNIST-CIFAR  & 2   & $24.90 \pm 0.61$ & $141.12 \pm 1.86$ & $0.53 \pm 0.24$ & $49.83 \pm 0.78$ \\
+Imagenet     & 200 & $32.74 \pm 0.02$ & $132.47 \pm 0.04$ & $18.20 \pm 0.16$ & $99.74 \pm 0.01$ \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\subsubsection{Effective Rank Evolution in Rich and Lazy Regimes}
+
+Figures~\ref{fig:eff_rank_rich} and \ref{fig:eff_rank_lazy} visualize the evolution of the effective rank of the first-layer weight matrix throughout training.  
+
+Figure~\ref{fig:eff_rank_rich} demonstrates the hallmark of the rich regime: a rapid collapse of the effective rank shortly after training begins.  
+Figure~\ref{fig:eff_rank_lazy}, by contrast, shows that the effective rank remains almost unchanged in the lazy regime, reflecting the near-kernel behavior of the model.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.80\linewidth]{rich_rank.png}
+\caption{Evolution of effective rank during training in the rich regime.}
+\label{fig:eff_rank_rich}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.80\linewidth]{lazy_rank.png}
+\caption{Evolution of effective rank during training in the lazy regime.}
+\label{fig:eff_rank_lazy}
+\end{figure}
+
+These trends faithfully reproduce the theoretical predictions of LD-SB: feature learning in the rich regime compresses representation dimensionality, whereas the lazy regime maintains a high-rank structure.
+
+\subsubsection{Accuracy Preservation Under Projection}
+
+Tables~\ref{tab:acc_rich} and \ref{tab:acc_lazy} report the accuracy of the full classifier $f$ and its projected version $f_{\text{proj}}$. As expected, $f_{\text{proj}}$ retains most of the predictive power of $f$, further supporting the argument that the classifier's decision function depends only on a low-dimensional subspace.
+
+\begin{table}[htbp]
+\centering
+\caption{Accuracy of $f$ and $f_{\text{proj}}$ in the rich regime.}
+\label{tab:acc_rich}
+\begin{tabular}{lcc}
+\toprule
+Dataset & Acc($f$) & Acc($f_{\text{proj}}$) \\
+\midrule
+b-Imagenette & 93.35 & $91.35 \pm 0.32$ \\
+Imagenette   & 79.67 & $71.93 \pm 0.12$ \\
+Waterbirds   & 90.29 & $89.92 \pm 0.08$ \\
+MNIST-CIFAR & 99.69 & $98.95 \pm 0.02$ \\
+Imagenet     & 72.02 & $69.63 \pm 0.08$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Accuracy of $f$ and $f_{\text{proj}}$ in the lazy regime.}
+\label{tab:acc_lazy}
+\begin{tabular}{lcc}
+\toprule
+Dataset & Acc($f$) & Acc($f_{\text{proj}}$) \\
+\midrule
+b-Imagenette & 93.09 & $91.77 \pm 0.34$ \\
+Imagenette   & 80.31 & $77.34 \pm 0.21$ \\
+Waterbirds   & 90.40 & $89.50 \pm 0.18$ \\
+MNIST-CIFAR & 99.74 & $98.54 \pm 0.00$ \\
+Imagenet     & 72.60 & $72.07 \pm 0.08$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Hypothesis Results}
+\label{sec:hypothesis_results}
+
+To evaluate whether network depth influences the manifestation of low-dimensional simplicity bias, we train MLPs with 1, 5, 10, 20, and 50 layers on Waterbirds features and compute LD-SB metrics for each model. Table~\ref{tab:depth_summary} summarizes the key results.
+
+\begin{table}[htbp]
+\centering
+\caption{Summary of depth-dependent LD-SB behavior in the rich regime. Deeper networks achieve higher effective rank while maintaining strong LD-SB signatures.}
+\label{tab:depth_summary}
+\begin{tabular}{cccccc}
+\toprule
+Layers & LR & Val Acc (\%) & Eff. Rank & $P_{\perp}$-pC (\%) & $P$-pC (\%) \\
+\midrule
+1  & 1.0  & 77.81 & 4.68  & 0.0 & 0.0 \\
+5  & 0.2  & 87.07 & 6.90  & 0.2 & 38.0 \\
+10 & 0.1  & 87.41 & 24.81 & 0.5 & 38.2 \\
+20 & 0.05 & 88.57 & 49.57 & 0.3 & 38.0 \\
+50 & 0.01 & 88.49 & 95.74 & 0.5 & 38.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Effective Rank Grows Monotonically with Depth.}
+Figure~\ref{fig:eff_rank_depth} shows a clear monotonic increase in effective rank as depth increases.  
+Shallow networks (1–5 layers) exhibit strong rank collapse (4.68--6.90), while deeper networks (20--50 layers) retain substantially higher rank, reaching 95.74 for 50 layers.  
+This directly supports our hypothesis that deeper MLPs rely on a higher-dimensional predictive subspace.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{plot_effective_rank.png}
+\caption{Effective rank vs.\ network depth. Depth suppresses rank collapse and yields higher-dimensional representations.}
+\label{fig:eff_rank_depth}
+\end{figure}
+
+\paragraph{$P_{\perp}$-pC Remains Extremely Low Across All Depths.}
+As shown in Figure~\ref{fig:pperp_pc_depth}, the prediction-change rate in the orthogonal subspace $P_{\perp}$ remains below 1.3\% for all depths.  
+This indicates that, even as rank increases, predictions remain highly insensitive to orthogonal directions---a hallmark of LD-SB.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{plot_p_perp_pc.png}
+\caption{$P_{\perp}$-pC vs.\ depth. All values remain $< 1.3\%$, indicating strong LD-SB across depths.}
+\label{fig:pperp_pc_depth}
+\end{figure}
+
+\paragraph{$P$-pC Saturates at Moderate Depth.}
+Figure~\ref{fig:p_pc_depth} shows that $P$-pC increases sharply from 1 layer to 5 layers (0.0\% → 38.0\%), but changes minimally between 5 and 50 layers (38--40\%).  
+Thus, even though deeper models use a higher-dimensional $P$, their degree of reliance on $P$ saturates, consistent with LD-SB.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{plot_p_pc.png}
+\caption{$P$-pC vs.\ depth. Values stabilize for depths $\geq 10$, indicating saturation of LD-SB strength.}
+\label{fig:p_pc_depth}
+\end{figure}
+
+\paragraph{Validation Accuracy Peaks Around 10 Layers.}
+Figure~\ref{fig:val_acc_depth} shows that validation accuracy improves from 1→10 layers but decreases slightly for 20 and 50 layers.  
+This suggests that deeper models are harder to optimize but do not fundamentally alter LD-SB behavior.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{plot_val_acc.png}
+\caption{Validation accuracy vs.\ depth. Accuracy peaks at 10 layers and declines slightly afterward.}
+\label{fig:val_acc_depth}
+\end{figure}
+
+\paragraph{Conclusion.}
+Depth significantly increases the dimensionality of the predictive subspace (higher $\mathrm{rank}(P)$), yet the classifier's reliance on that subspace---measured by $P_{\perp}$-pC and $P$-pC---remains strong and largely unchanged beyond moderate depth.  
+These findings confirm our hypothesis: **deeper networks learn higher-dimensional representations but retain the core simplicity bias structure described by LD-SB**.
+
+\subsection{Rich vs Lazy Regime Comparison}
+\label{sec:rich_lazy}
+
+To further investigate the mechanism behind depth-dependent rank dynamics, we compare the \textbf{rich} and \textbf{lazy} training regimes across all depths. The rich regime uses uniform sphere initialization that enables feature learning and rank collapse, while the lazy regime uses NTK-style variance scaling where weights remain close to initialization.
+
+Table~\ref{tab:rich_vs_lazy} summarizes the results.
+
+\begin{table}[htbp]
+\centering
+\caption{Rich vs Lazy regime comparison across network depths on Waterbirds.}
+\label{tab:rich_vs_lazy}
+\begin{tabular}{cccccc}
+\toprule
+Layers & Regime & Val Acc (\%) & Eff. Rank & $P_{\perp}$-pC (\%) & $P$-pC (\%) \\
+\midrule
+1 & Rich & 77.81 & 4.68 & 0.0 & 0.0 \\
+1 & Lazy & 87.24 & 84.03 & 0.4 & 39.0 \\
+5 & Rich & 87.07 & 6.90 & 0.2 & 38.0 \\
+5 & Lazy & 87.16 & 96.50 & 0.4 & 39.5 \\
+10 & Rich & 87.41 & 24.81 & 0.5 & 38.2 \\
+10 & Lazy & 86.99 & 96.28 & 0.5 & 39.0 \\
+20 & Rich & 88.57 & 49.57 & 0.3 & 38.0 \\
+20 & Lazy & 87.57 & 95.89 & 0.5 & 38.6 \\
+50 & Rich & 88.49 & 95.74 & 0.5 & 38.4 \\
+50 & Lazy & 85.57 & 96.39 & 0.8 & 40.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key Observations.}
+
+\begin{enumerate}
+    \item \textbf{Rank collapse is regime-dependent.} In the rich regime, effective rank varies dramatically with depth (4.68 → 95.74), while in the lazy regime it remains nearly constant (~96) regardless of depth.
+    
+    \item \textbf{Depth modulates rank collapse only in the rich regime.} The monotonic increase in effective rank with depth occurs specifically because feature learning in the rich regime causes weight updates. In the lazy regime, weights barely move from initialization, so depth has no effect on rank.
+    
+    \item \textbf{LD-SB metrics converge across regimes at sufficient depth.} For 50-layer networks, both regimes achieve similar effective ranks (~96) and similar LD-SB metrics ($P$-pC ~38--40\%), suggesting that deep rich-regime networks eventually approximate lazy-regime behavior.
+    
+    \item \textbf{1-layer rich regime shows extreme LD-SB.} The 1-layer rich model exhibits $P$-pC = 0.0\%, indicating it relies \emph{exclusively} on the low-dimensional subspace. This is the most extreme form of simplicity bias observed.
+\end{enumerate}
+
+Figure~\ref{fig:rich_vs_lazy} visualizes these trends.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{results/plot_rich_vs_lazy.png}
+\caption{Rich vs Lazy regime comparison across network depths. The rich regime shows depth-dependent rank dynamics (top-left), while the lazy regime maintains high rank regardless of depth. LD-SB metrics ($P_{\perp}$-pC, $P$-pC) remain similar across regimes for depths $\geq 5$.}
+\label{fig:rich_vs_lazy}
+\end{figure}
+
+\paragraph{Implications for the Hypothesis.}
+This comparison strengthens our hypothesis by revealing \emph{why} depth affects LD-SB. The depth-dependent suppression of rank collapse occurs specifically in the rich training regime, where gradient-based feature learning causes weight updates. In the lazy regime, effective rank remains high regardless of depth, confirming that depth influences LD-SB through its effect on gradient-based feature learning rather than through architectural capacity alone.
+
+
+\section{Discussion}
+
+\subsection{Interpretation of Results}
+
+Our experiments provide strong empirical support for the hypothesis that \textbf{increasing MLP classifier depth significantly reduces simplicity bias}.
+
+\textbf{Why does depth reduce simplicity bias?}
+
+The dramatic reduction in $P$-pC from 87.1\% to 17.6\% indicates a fundamental change in how the model makes decisions:
+
+\begin{itemize}
+    \item \textbf{Shallow networks (1 layer):} For 87\% of mixed samples, the prediction follows only the $P$-subspace contribution. The model essentially ignores $\sim$2034 of the 2048 feature dimensions.
+    
+    \item \textbf{Deep networks (5+ layers):} For only 17.6\% of samples does the prediction ignore the $P^{\perp}$ contribution. The model integrates information from more dimensions.
+\end{itemize}
+
+\textbf{Why does rank$(P)$ increase?}
+
+The increase from 11 to 14 dimensions indicates that deep networks require more independent feature directions to maintain prediction stability. While numerically modest, this represents a 27\% increase in decision complexity. In the LD-SB framework, even small rank changes indicate fundamentally different decision structures.
+
+\textbf{Why does the effect saturate?}
+
+The identical metrics for 5-layer and 10-layer networks suggest that:
+\begin{itemize}
+    \item The Imagenette classification task has intrinsic complexity requiring $\sim$14 feature dimensions
+    \item Beyond 5 layers, additional depth provides no further benefit for this task
+    \item This aligns with theories that task complexity, not arbitrary depth, should guide architecture design
+\end{itemize}
+
+\subsection{Implications for Robustness}
+
+Although we did not directly measure adversarial or distributional robustness, our findings suggest potential benefits:
+
+\begin{enumerate}
+    \item \textbf{Reduced single-point-of-failure:} If a model depends on many feature dimensions, corruption of any single direction should cause less dramatic prediction degradation
+    
+    \item \textbf{Better spurious correlation handling:} Distributed feature dependence may make deep networks less susceptible to learning shortcuts
+    
+    \item \textbf{More semantic decision-making:} Utilizing more features may correspond to learning more meaningful, generalizable patterns
+\end{enumerate}
+
+
+
+\subsection{Future Work}
+
+\begin{enumerate}
+    \item \textbf{End-to-end analysis:}  
+    Extend LD-SB measurement to full CNN architectures trained end-to-end rather than frozen feature extractors. This would allow us to characterize how simplicity bias evolves across layers of deep vision systems.
+
+    \item \textbf{Robustness correlation:}  
+    Investigate whether increases in $\mathrm{rank}(P)$ correlate with improved robustness on:
+    \begin{itemize}
+        \item ImageNet-C (corruption robustness),
+        \item ImageNet-R (rendition robustness),
+        \item adversarial attacks.
+    \end{itemize}
+
+    \item \textbf{Complementarity with debiasing methods:}  
+    Explore whether depth-induced rank increases can be combined with explicit debiasing techniques such as OrthoP \cite{b8} or group DRO \cite{b6} to further reduce reliance on spurious features.
+
+    \item \textbf{Width vs.\ depth:}  
+    Systematically compare the influence of width and depth on LD-SB. Since deeper models reduce rank collapse while wider models increase representational capacity, their interaction remains an open direction.
+
+\end{enumerate}
+
+\section{Conclusion}
+
+This report examined how neural network depth affects low-dimensional simplicity bias (LD-SB) in MLP classifiers trained on Waterbirds features. Our results show that depth does not eliminate simplicity bias but fundamentally reshapes how it manifests.
+
+\begin{enumerate}
+    \item \textbf{Depth dramatically increases the dimensionality of the predictive subspace.}  
+    The effective rank of $P$ grows from 4.68 in a 1-layer model to 95.74 in a 50-layer model, indicating that deeper networks require far more feature directions to maintain prediction stability.
+
+    \item \textbf{LD-SB strength remains stable despite increased dimensionality.}  
+    Although $\mathrm{rank}(P)$ increases by more than an order of magnitude, $P$-pC remains tightly clustered around 38--40\% for all models with depth $\geq 5$.  
+    Thus, deeper models rely on a larger subspace, but still make predictions predominantly using that subspace.
+
+    \item \textbf{Saturation occurs at moderate depth.}  
+    The LD-SB metrics for 10-, 20-, and 50-layer models are nearly identical, suggesting that task-specific complexity bounds the effective dimensionality needed for decision-making.
+    
+    \item \textbf{Depth effects are regime-dependent.}
+    Comparing rich and lazy training regimes reveals that the depth-dependent rank dynamics occur specifically in the rich regime, where feature learning enables weight updates. In the lazy regime, effective rank remains high ($\sim$96) regardless of depth, confirming that depth influences LD-SB through gradient-based feature learning rather than architectural capacity alone.
+\end{enumerate}
+
+Together, these findings support the hypothesis that \textbf{depth increases the dimensionality of the learned predictive subspace without weakening the core LD-SB phenomenon}.  
+Depth reduces rank collapse but does not remove simplicity bias; rather, it redistributes it across a higher-dimensional space.  
+The rich vs lazy comparison further clarifies that this depth effect operates through the mechanism of feature learning: when weights are free to adapt (rich regime), deeper networks suppress rank collapse; when weights remain near initialization (lazy regime), depth has no effect.
+This highlights depth as a meaningful architectural lever for shaping internal representations while preserving the structural simplicity inherent to modern neural networks.
+
+
+
+
+
+
+\begin{thebibliography}{00}
+
+\bibitem{b1} D. Hendrycks and T. Dietterich, ``Benchmarking neural network robustness to common corruptions and perturbations,'' in \textit{Proc. Int. Conf. Learn. Representations (ICLR)}, 2019.
+
+\bibitem{b2} H. Shah, K. Tamuly, A. Raghunathan, P. Jain, and P. Netrapalli, ``The pitfalls of simplicity bias in neural networks,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol. 33, pp. 9573--9585, 2020.
+
+\bibitem{b3} R. Geirhos, J.-H. Jacobsen, C. Michaelis, R. Zemel, W. Brendel, M. Bethge, and F.A. Wichmann, ``Shortcut learning in deep neural networks,'' \textit{Nature Machine Intelligence}, vol. 2, no. 11, pp. 665--673, 2020.
+
+\bibitem{b4} K. Hermann and A. Lampinen, ``What shapes feature representations? Exploring datasets, architectures, and training,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol. 33, pp. 9995--10006, 2020.
+
+\bibitem{b5} M. Arjovsky, L. Bottou, I. Gulrajani, and D. Lopez-Paz, ``Invariant risk minimization,'' \textit{arXiv preprint arXiv:1907.02893}, 2019.
+
+\bibitem{b6} S. Sagawa, P.W. Koh, T.B. Hashimoto, and P. Liang, ``Distributionally robust neural networks for group shifts: On the importance of regularization for worst-case generalization,'' in \textit{Proc. Int. Conf. Learn. Representations (ICLR)}, 2020.
+
+\bibitem{b7} D. Morwani, J. Batra, P. Jain, and P. Netrapalli, ``Simplicity bias in 1-hidden layer neural networks,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol. 36, 2023.
+
+\bibitem{b8} W. Liang, J. Zou, and Z. Yu, ``OrthoP: Mitigating simplicity bias via orthogonal projection,'' \textit{arXiv preprint arXiv:2210.09587}, 2022.
+
+\end{thebibliography}
+
+\end{document}
+

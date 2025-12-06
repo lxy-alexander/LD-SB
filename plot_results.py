@@ -1,6 +1,6 @@
 """
 Plot LD-SB experiment results from JSON output files.
-Generates figures for effective rank, P⊥-pC, P-pC, and validation accuracy vs depth.
+Generates figures for Rich vs Lazy comparison across network depths.
 """
 
 import json
@@ -10,177 +10,268 @@ import numpy as np
 
 
 def load_results(output_dir="outputs"):
-    """Load all results_layer*.json files from the output directory."""
-    results = {}
+    """Load all results JSON files, organized by regime and layers."""
+    results = {"rich": {}, "lazy": {}}
     output_path = Path(output_dir)
     
-    for json_file in sorted(output_path.glob("results_layer*.json")):
-        with open(json_file) as f:
-            data = json.load(f)
-            num_layers = data["config"]["num_layers"]
-            results[num_layers] = data
+    # Load regime-specific files (new format)
+    for regime in ["rich", "lazy"]:
+        for json_file in sorted(output_path.glob(f"results_{regime}_layer*.json")):
+            with open(json_file) as f:
+                data = json.load(f)
+                num_layers = data["config"]["num_layers"]
+                results[regime][num_layers] = data
+    
+    # Fallback: load old format files as "rich"
+    if not results["rich"]:
+        for json_file in sorted(output_path.glob("results_layer*.json")):
+            with open(json_file) as f:
+                data = json.load(f)
+                num_layers = data["config"]["num_layers"]
+                results["rich"][num_layers] = data
     
     return results
 
 
-def plot_all_metrics(results, save_dir="results"):
-    """Generate a 2x2 figure with all key metrics."""
+def plot_rich_vs_lazy_comparison(results, save_dir="results"):
+    """Generate comparison plots for Rich vs Lazy regimes."""
     save_path = Path(save_dir)
     save_path.mkdir(exist_ok=True)
     
-    # Sort by number of layers
-    layers = sorted(results.keys())
+    rich = results["rich"]
+    lazy = results["lazy"]
     
-    # Extract metrics
-    eff_ranks = [results[l]["final_effective_rank"] for l in layers]
-    p_perp_pc = [results[l]["ldsb_metrics"]["P_perp_pC"] for l in layers]
-    p_pc = [results[l]["ldsb_metrics"]["P_pC"] for l in layers]
-    val_accs = [results[l]["final_val_acc"] for l in layers]
+    if not rich or not lazy:
+        print("Need both Rich and Lazy results for comparison plots")
+        return
+    
+    layers = sorted(set(rich.keys()) & set(lazy.keys()))
+    
+    # Extract metrics for both regimes
+    rich_ranks = [rich[l]["final_effective_rank"] for l in layers]
+    lazy_ranks = [lazy[l]["final_effective_rank"] for l in layers]
+    
+    rich_val_acc = [rich[l]["final_val_acc"] for l in layers]
+    lazy_val_acc = [lazy[l]["final_val_acc"] for l in layers]
+    
+    rich_p_perp = [rich[l]["ldsb_metrics"]["P_perp_pC"] for l in layers]
+    lazy_p_perp = [lazy[l]["ldsb_metrics"]["P_perp_pC"] for l in layers]
+    
+    rich_p_pc = [rich[l]["ldsb_metrics"]["P_pC"] for l in layers]
+    lazy_p_pc = [lazy[l]["ldsb_metrics"]["P_pC"] for l in layers]
     
     # Create 2x2 subplot
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     
+    # Style
+    colors = {"rich": "#2E86AB", "lazy": "#E94F37"}
+    
     # Plot 1: Effective Rank vs Depth
-    axes[0, 0].plot(layers, eff_ranks, 'o-', linewidth=2, markersize=8)
-    axes[0, 0].set_xlabel("Layers")
-    axes[0, 0].set_ylabel("Eff. Rank")
-    axes[0, 0].set_title("Effective Rank vs Depth")
+    axes[0, 0].plot(layers, rich_ranks, 'o-', linewidth=2, markersize=8, 
+                    color=colors["rich"], label="Rich Regime")
+    axes[0, 0].plot(layers, lazy_ranks, 's--', linewidth=2, markersize=8, 
+                    color=colors["lazy"], label="Lazy Regime")
+    axes[0, 0].set_xlabel("Layers", fontsize=11)
+    axes[0, 0].set_ylabel("Effective Rank", fontsize=11)
+    axes[0, 0].set_title("Effective Rank vs Depth", fontsize=12, fontweight='bold')
+    axes[0, 0].legend()
     axes[0, 0].grid(True, alpha=0.3)
     
-    # Plot 2: P⊥-pC vs Depth
-    axes[0, 1].plot(layers, p_perp_pc, 'o-', linewidth=2, markersize=8)
-    axes[0, 1].set_xlabel("Layers")
-    axes[0, 1].set_ylabel("P⊥-pC (%)")
-    axes[0, 1].set_title("P⊥-pC vs Depth")
+    # Plot 2: Validation Accuracy vs Depth
+    axes[0, 1].plot(layers, rich_val_acc, 'o-', linewidth=2, markersize=8, 
+                    color=colors["rich"], label="Rich Regime")
+    axes[0, 1].plot(layers, lazy_val_acc, 's--', linewidth=2, markersize=8, 
+                    color=colors["lazy"], label="Lazy Regime")
+    axes[0, 1].set_xlabel("Layers", fontsize=11)
+    axes[0, 1].set_ylabel("Validation Accuracy (%)", fontsize=11)
+    axes[0, 1].set_title("Validation Accuracy vs Depth", fontsize=12, fontweight='bold')
+    axes[0, 1].legend()
     axes[0, 1].grid(True, alpha=0.3)
     
-    # Plot 3: P-pC vs Depth
-    axes[1, 0].plot(layers, p_pc, 'o-', linewidth=2, markersize=8)
-    axes[1, 0].set_xlabel("Layers")
-    axes[1, 0].set_ylabel("P-pC (%)")
-    axes[1, 0].set_title("P-pC vs Depth")
+    # Plot 3: P⊥-pC vs Depth
+    axes[1, 0].plot(layers, rich_p_perp, 'o-', linewidth=2, markersize=8, 
+                    color=colors["rich"], label="Rich Regime")
+    axes[1, 0].plot(layers, lazy_p_perp, 's--', linewidth=2, markersize=8, 
+                    color=colors["lazy"], label="Lazy Regime")
+    axes[1, 0].set_xlabel("Layers", fontsize=11)
+    axes[1, 0].set_ylabel("P⊥-pC (%)", fontsize=11)
+    axes[1, 0].set_title("P⊥-pC vs Depth (Lower = Stronger LD-SB)", fontsize=12, fontweight='bold')
+    axes[1, 0].legend()
     axes[1, 0].grid(True, alpha=0.3)
     
-    # Plot 4: Validation Accuracy vs Depth
-    axes[1, 1].plot(layers, val_accs, 'o-', linewidth=2, markersize=8)
-    axes[1, 1].set_xlabel("Layers")
-    axes[1, 1].set_ylabel("Val Acc (%)")
-    axes[1, 1].set_title("Validation Accuracy vs Depth")
+    # Plot 4: P-pC vs Depth
+    axes[1, 1].plot(layers, rich_p_pc, 'o-', linewidth=2, markersize=8, 
+                    color=colors["rich"], label="Rich Regime")
+    axes[1, 1].plot(layers, lazy_p_pc, 's--', linewidth=2, markersize=8, 
+                    color=colors["lazy"], label="Lazy Regime")
+    axes[1, 1].set_xlabel("Layers", fontsize=11)
+    axes[1, 1].set_ylabel("P-pC (%)", fontsize=11)
+    axes[1, 1].set_title("P-pC vs Depth", fontsize=12, fontweight='bold')
+    axes[1, 1].legend()
     axes[1, 1].grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(save_path / "plot_all_metrics.png", dpi=150, bbox_inches='tight')
+    plt.savefig(save_path / "plot_rich_vs_lazy.png", dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"Saved: {save_path / 'plot_all_metrics.png'}")
+    print(f"Saved: {save_path / 'plot_rich_vs_lazy.png'}")
 
 
-def plot_individual_metrics(results, save_dir="results"):
-    """Generate individual plots for each metric."""
+def plot_rank_comparison(results, save_dir="results"):
+    """Generate a focused plot comparing effective rank dynamics."""
     save_path = Path(save_dir)
     save_path.mkdir(exist_ok=True)
     
-    layers = sorted(results.keys())
+    rich = results["rich"]
+    lazy = results["lazy"]
     
-    metrics = {
-        "effective_rank": {
-            "data": [results[l]["final_effective_rank"] for l in layers],
-            "ylabel": "Effective Rank",
-            "title": "Effective Rank vs Depth"
-        },
-        "p_perp_pc": {
-            "data": [results[l]["ldsb_metrics"]["P_perp_pC"] for l in layers],
-            "ylabel": "P⊥-pC (%)",
-            "title": "P⊥-pC vs Depth"
-        },
-        "p_pc": {
-            "data": [results[l]["ldsb_metrics"]["P_pC"] for l in layers],
-            "ylabel": "P-pC (%)",
-            "title": "P-pC vs Depth"
-        },
-        "val_acc": {
-            "data": [results[l]["final_val_acc"] for l in layers],
-            "ylabel": "Validation Accuracy (%)",
-            "title": "Validation Accuracy vs Depth"
-        }
-    }
+    if not rich or not lazy:
+        return
     
-    for name, info in metrics.items():
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(layers, info["data"], 'o-', linewidth=2, markersize=8)
-        ax.set_xlabel("Layers")
-        ax.set_ylabel(info["ylabel"])
-        ax.set_title(info["title"])
-        ax.grid(True, alpha=0.3)
-        
-        filename = save_path / f"plot_{name}.png"
-        plt.savefig(filename, dpi=150, bbox_inches='tight')
-        plt.close()
-        print(f"Saved: {filename}")
-
-
-def plot_training_curves(results, save_dir="results"):
-    """Plot training curves (effective rank over time) for all experiments."""
-    save_path = Path(save_dir)
-    save_path.mkdir(exist_ok=True)
+    layers = sorted(set(rich.keys()) & set(lazy.keys()))
+    
+    rich_ranks = [rich[l]["final_effective_rank"] for l in layers]
+    lazy_ranks = [lazy[l]["final_effective_rank"] for l in layers]
     
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    for num_layers in sorted(results.keys()):
-        data = results[num_layers]
-        eff_rank_history = data["history"]["effective_rank"]
-        epochs = range(1, len(eff_rank_history) + 1)
-        ax.plot(epochs, eff_rank_history, label=f"{num_layers} layer(s)", linewidth=1.5)
+    x = np.arange(len(layers))
+    width = 0.35
     
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Effective Rank")
-    ax.set_title("Effective Rank During Training")
+    bars1 = ax.bar(x - width/2, rich_ranks, width, label='Rich Regime', color='#2E86AB', alpha=0.85)
+    bars2 = ax.bar(x + width/2, lazy_ranks, width, label='Lazy Regime', color='#E94F37', alpha=0.85)
+    
+    ax.set_xlabel('Number of Layers', fontsize=12)
+    ax.set_ylabel('Effective Rank', fontsize=12)
+    ax.set_title('Effective Rank: Rich vs Lazy Regime', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(layers)
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis='y')
+    
+    # Add value labels on bars
+    for bar in bars1:
+        height = bar.get_height()
+        ax.annotate(f'{height:.1f}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 3), textcoords="offset points",
+                    ha='center', va='bottom', fontsize=9)
+    for bar in bars2:
+        height = bar.get_height()
+        ax.annotate(f'{height:.1f}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 3), textcoords="offset points",
+                    ha='center', va='bottom', fontsize=9)
+    
+    plt.tight_layout()
+    plt.savefig(save_path / "plot_rank_comparison_bar.png", dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {save_path / 'plot_rank_comparison_bar.png'}")
+
+
+def plot_training_curves(results, save_dir="results"):
+    """Plot training curves (effective rank over time) for Rich regime."""
+    save_path = Path(save_dir)
+    save_path.mkdir(exist_ok=True)
+    
+    rich = results["rich"]
+    if not rich:
+        return
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    colors = plt.cm.viridis(np.linspace(0, 1, len(rich)))
+    
+    for i, num_layers in enumerate(sorted(rich.keys())):
+        data = rich[num_layers]
+        eff_rank_history = data["history"]["effective_rank"]
+        steps = np.linspace(0, 20000, len(eff_rank_history))
+        ax.plot(steps, eff_rank_history, label=f"{num_layers} layer(s)", 
+                linewidth=1.5, color=colors[i])
+    
+    ax.set_xlabel("Training Step", fontsize=11)
+    ax.set_ylabel("Effective Rank", fontsize=11)
+    ax.set_title("Effective Rank During Training (Rich Regime)", fontsize=12, fontweight='bold')
     ax.legend()
     ax.grid(True, alpha=0.3)
     
-    filename = save_path / "plot_rank_over_time.png"
-    plt.savefig(filename, dpi=150, bbox_inches='tight')
+    plt.tight_layout()
+    plt.savefig(save_path / "plot_rank_over_time.png", dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"Saved: {filename}")
+    print(f"Saved: {save_path / 'plot_rank_over_time.png'}")
 
 
 def print_summary_table(results):
     """Print a markdown summary table of all results."""
-    print("\n## Summary Table\n")
-    print("| Layers | Learning Rate | Final Val Acc | Final Eff. Rank | P⊥-pC (↓) | P-pC (↑) | rank(P) |")
-    print("|--------|---------------|---------------|-----------------|-----------|----------|---------|")
+    print("\n## Rich vs Lazy Comparison Table\n")
+    print("| Layers | Regime | Val Acc (%) | Eff. Rank | P⊥-pC (%) | P-pC (%) |")
+    print("|--------|--------|-------------|-----------|-----------|----------|")
     
-    for num_layers in sorted(results.keys()):
-        data = results[num_layers]
-        lr = data["config"]["learning_rate"]
-        val_acc = data["final_val_acc"]
-        eff_rank = data["final_effective_rank"]
-        p_perp_pc = data["ldsb_metrics"]["P_perp_pC"]
-        p_pc = data["ldsb_metrics"]["P_pC"]
-        rank_p = data["ldsb_metrics"]["rank_P"]
-        
-        print(f"| {num_layers:<6} | {lr:<13} | {val_acc:.2f}%{' '*(6-len(f'{val_acc:.2f}'))} | {eff_rank:.2f}{' '*(14-len(f'{eff_rank:.2f}'))}| {p_perp_pc:.1f}%{' '*(7-len(f'{p_perp_pc:.1f}'))}| {p_pc:.1f}%{' '*(6-len(f'{p_pc:.1f}'))}| {rank_p:<7} |")
+    layers = sorted(set(results["rich"].keys()) | set(results["lazy"].keys()))
+    
+    for num_layers in layers:
+        for regime in ["rich", "lazy"]:
+            if num_layers in results[regime]:
+                data = results[regime][num_layers]
+                val_acc = data["final_val_acc"]
+                eff_rank = data["final_effective_rank"]
+                p_perp_pc = data["ldsb_metrics"]["P_perp_pC"]
+                p_pc = data["ldsb_metrics"]["P_pC"]
+                
+                print(f"| {num_layers:<6} | {regime:<6} | {val_acc:>11.2f} | {eff_rank:>9.2f} | {p_perp_pc:>9.1f} | {p_pc:>8.1f} |")
+
+
+def generate_latex_table(results):
+    """Generate LaTeX table for the paper."""
+    print("\n%% LaTeX Table (copy into paper)\n")
+    print(r"\begin{table}[htbp]")
+    print(r"\centering")
+    print(r"\caption{Rich vs Lazy regime comparison across network depths on Waterbirds.}")
+    print(r"\label{tab:rich_vs_lazy}")
+    print(r"\begin{tabular}{cccccc}")
+    print(r"\toprule")
+    print(r"Layers & Regime & Val Acc (\%) & Eff. Rank & $P_{\perp}$-pC (\%) & $P$-pC (\%) \\")
+    print(r"\midrule")
+    
+    layers = sorted(set(results["rich"].keys()) | set(results["lazy"].keys()))
+    
+    for num_layers in layers:
+        for regime in ["rich", "lazy"]:
+            if num_layers in results[regime]:
+                data = results[regime][num_layers]
+                val_acc = data["final_val_acc"]
+                eff_rank = data["final_effective_rank"]
+                p_perp_pc = data["ldsb_metrics"]["P_perp_pC"]
+                p_pc = data["ldsb_metrics"]["P_pC"]
+                
+                regime_display = regime.capitalize()
+                print(f"{num_layers} & {regime_display} & {val_acc:.2f} & {eff_rank:.2f} & {p_perp_pc:.1f} & {p_pc:.1f} \\\\")
+    
+    print(r"\bottomrule")
+    print(r"\end{tabular}")
+    print(r"\end{table}")
 
 
 if __name__ == "__main__":
     # Load results
     results = load_results("outputs")
     
-    if not results:
+    total_results = len(results["rich"]) + len(results["lazy"])
+    if total_results == 0:
         print("No results found in outputs/. Run experiments first:")
-        print("  python main.py --layers 1 --lr 1.0")
-        print("  python main.py --layers 5 --lr 0.2")
-        print("  python main.py --layers 10 --lr 0.1")
-        print("  python main.py --layers 20 --lr 0.05")
-        print("  python main.py --layers 50 --lr 0.01")
+        print("  python main.py --regime rich --layers 1")
+        print("  python main.py --regime lazy --layers 1")
         exit(1)
     
-    print(f"Found results for {len(results)} experiment(s): layers = {sorted(results.keys())}")
+    print(f"Found Rich regime results: layers = {sorted(results['rich'].keys())}")
+    print(f"Found Lazy regime results: layers = {sorted(results['lazy'].keys())}")
     
     # Generate plots
-    plot_all_metrics(results)
-    plot_individual_metrics(results)
+    plot_rich_vs_lazy_comparison(results)
+    plot_rank_comparison(results)
     plot_training_curves(results)
     
     # Print summary
     print_summary_table(results)
-
+    
+    # Generate LaTeX table
+    generate_latex_table(results)
