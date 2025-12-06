@@ -496,6 +496,15 @@ Figure~\ref{fig:rich_vs_lazy} visualizes these trends.
 \label{fig:rich_vs_lazy}
 \end{figure}
 
+Figure~\ref{fig:rank_dynamics} shows the evolution of effective rank during training for all depths in the rich regime. Shallow networks (1--5 layers) exhibit rapid rank collapse within the first few hundred training steps, quickly converging to low-rank representations. In contrast, deeper networks (20--50 layers) maintain substantially higher rank throughout training, with the 50-layer network showing almost no rank reduction.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/plot_rank_over_time.png}
+\caption{Evolution of effective rank during training in the rich regime. Shallow networks (1--5 layers) exhibit rapid rank collapse in early training, while deeper networks maintain higher rank throughout. This visualizes the depth-dependent suppression of rank collapse.}
+\label{fig:rank_dynamics}
+\end{figure}
+
 \paragraph{Implications for the Hypothesis.}
 This comparison strengthens our hypothesis by revealing \emph{why} depth affects LD-SB. The depth-dependent suppression of rank collapse occurs specifically in the rich training regime, where gradient-based feature learning causes weight updates. In the lazy regime, effective rank remains high regardless of depth, confirming that depth influences LD-SB through its effect on gradient-based feature learning rather than through architectural capacity alone.
 
