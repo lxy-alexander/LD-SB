@@ -550,7 +550,30 @@ Although we did not directly measure adversarial or distributional robustness, o
     \item \textbf{More semantic decision-making:} Utilizing more features may correspond to learning more meaningful, generalizable patterns
 \end{enumerate}
 
+\subsection{Rich vs Lazy: Mechanistic Insights}
 
+Our comparison of rich and lazy training regimes provides crucial mechanistic insight into \emph{why} depth affects simplicity bias. Figure~\ref{fig:rank_bar} visualizes the stark contrast between regimes.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/plot_rank_comparison_bar.png}
+\caption{Effective rank comparison between rich and lazy regimes across network depths. The rich regime shows a clear depth-dependent increase in effective rank, while the lazy regime maintains near-maximum rank regardless of depth.}
+\label{fig:rank_bar}
+\end{figure}
+
+\textbf{The depth effect is not architectural—it is dynamical.} If depth alone determined effective rank, we would expect similar behavior in both regimes. Instead, we observe:
+
+\begin{itemize}
+    \item \textbf{Rich regime:} Effective rank increases monotonically from 4.68 (1-layer) to 95.74 (50-layer). Depth suppresses the rank collapse that occurs during feature learning.
+    
+    \item \textbf{Lazy regime:} Effective rank remains $\sim$96 regardless of depth. Since weights barely move from initialization, no rank collapse occurs, and depth has no effect.
+\end{itemize}
+
+This reveals that the mechanism behind depth-dependent LD-SB is \textbf{gradient-based feature learning}. In the rich regime, gradients propagate through more layers in deeper networks, effectively limiting the magnitude of weight updates in early layers and preventing extreme rank collapse. In the lazy regime, this mechanism is absent because learning occurs primarily in function space rather than weight space.
+
+\textbf{Convergence at depth.} A striking observation is that 50-layer networks achieve nearly identical effective ranks in both regimes ($\sim$96). This suggests that sufficiently deep rich-regime networks eventually approximate lazy-regime behavior—the weight updates become so distributed across layers that no single layer experiences dramatic rank collapse.
+
+This finding has practical implications: practitioners seeking to avoid extreme simplicity bias in rich-regime training may benefit from using deeper architectures, even when shallower networks would suffice for the task complexity.
 
 \subsection{Future Work}
 
