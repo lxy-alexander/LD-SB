@@ -95,9 +95,9 @@ Accuracy peaks at 10 layers and slightly decreases for deeper networks, reflecti
 ├── train.py           # Training loop with warmup + cosine schedule
 ├── ldsb_eval.py       # LD-SB metric computation
 ├── main.py            # Main entry point
-├── reproduce/
-│   ├── ldsb.py        # Standalone LD-SB reproduction script
-│   └── orthop.py      # OrthoP comparison (Rich vs Lazy)
+├── lasb/
+│   ├── ldsb.py        # LD-SB reproduction script
+│   └── orthop.py      # OrthoP comparison
 └── results/
     ├── sb_layer1.txt  # 1-layer experiment logs
     ├── sb_layer5.txt  # 5-layer experiment logs
