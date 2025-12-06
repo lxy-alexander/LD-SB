@@ -384,5 +384,45 @@ Depth reshapes but does not eliminate simplicity bias, redistributing it across 
 
 \end{thebibliography}
 
+\appendix
+
+\section{Additional Figures}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.80\linewidth]{lazy_rank.png}
+\caption{Evolution of effective rank during training in the lazy regime. Unlike the rich regime, rank remains high throughout training.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/plot_effective_rank.png}
+\caption{Effective rank vs.\ network depth in the rich regime. Deeper networks maintain higher rank.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/plot_p_perp_pc.png}
+\caption{$P_{\perp}$-pC vs.\ depth. Values remain $< 1\%$ across all depths.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/plot_p_pc.png}
+\caption{$P$-pC vs.\ depth. Values saturate at $\sim$38\% for depths $\geq 5$.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/plot_val_acc.png}
+\caption{Validation accuracy vs.\ depth. Accuracy peaks at 10 layers.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{results/plot_rank_over_time.png}
+\caption{Evolution of effective rank during training for different depths. Shallow networks collapse rapidly; deep networks maintain rank.}
+\end{figure}
+
 \end{document}
 
